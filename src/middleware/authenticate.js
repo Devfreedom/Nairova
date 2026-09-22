@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const { jwtSecret } = require("../config/env");
+const jwtSecret = process.env.JWT_SECRET;
 const users = require("../data/users");
 const AppError = require("../utils/AppError");
 
