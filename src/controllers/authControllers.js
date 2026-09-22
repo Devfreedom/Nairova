@@ -44,17 +44,25 @@ const login = async (req, res, next) => {
 
         const user = users.find((u) => u.email === email);
         const passwordMatches = user ? await bcrypt.compare(password, user.password) : false;
-      if (!user || !passwordMatches) {
-        throw new AppError("Invalid password", 401)
-      }
+        if (!user || !passwordMatches) {
+            throw new AppError("Invalid password", 401)
+        }
 
-const token = jwt.sign(
-    {id: user.id, email: user.email, role: user.role},
-    jwtSecret,
-    {expiresIn: jwtExpiresIn}
-);
+        const token = jwt.sign(
+            { id: user.id, email: user.email, role: user.role },
+            jwtSecret,
+            { expiresIn: jwtExpiresIn }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "Login successful",
+            token
+        })
+    } catch (err) {
+        next(err)
     }
-}
+};
 
 
 module.exports = { register, login }
