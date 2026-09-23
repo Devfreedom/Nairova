@@ -6,10 +6,12 @@ const getBalance = async (req, res, next) => {
     if (!user) {
   throw new AppError("User not found", 404);
 }
+
 res.status(200).json({
   success: true,
   balance: user.balance,
 });
+
   } catch (err) {
     next(err); 
   }
