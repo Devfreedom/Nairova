@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const users = require("../data/users");
+const {users, getNextId} = require("../data/users");
 const jwt = require("jsonwebtoken");
 const AppError = require("../utils/AppError");
 const jwtSecret = process.env.JWT_SECRET;
@@ -17,7 +17,7 @@ const register = async (req, res, next) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const newUser = {
-            id: users.getNextId(),
+            id: getNextId(),
             name,
             email,
             password: hashedPassword,

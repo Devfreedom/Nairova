@@ -2,4 +2,8 @@ let users = [];
 let transactions = [];
 let idCounter = 1;
 
-module.exports = {users, transactions, getNextId: () => idCounter++}
+module.exports = {
+  users,
+  transactions,
+  getNextId: () => idCounter++,
+};
