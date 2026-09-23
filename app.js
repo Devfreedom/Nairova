@@ -25,6 +25,11 @@ app.use((req, res, next) => {
     next(new AppError(`Route ${req.originalUrl} not found`, 404));
 });
 
+app.use((err, req, res, next) => {
+     console.error(err); // ← is this line there?
+     res.status(500).json({ success: false, message: 'Something went wrong' });
+   });
+
 app.use(errorHandler);
 
 module.exports = app
