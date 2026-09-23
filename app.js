@@ -33,7 +33,7 @@ app.use((req, res, next) => {
 //    });
 
    app.use('/api/transfer', require('./src/routes/transferRoutes'))
-   app.use('/api/transfer', require('./routes/transferRoutes'));
+   app.use('/api/transfer', require('./src/routes/transferRoutes'));
    
    app.use((err, req, res, next) => {
   console.error(err);
