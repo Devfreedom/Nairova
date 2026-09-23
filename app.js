@@ -3,7 +3,8 @@ const helmet = require("helmet");
 const cors = require("cors");
 const logger = require("./src/middleware/logger");
 const {apiLimiter} = require("./src/middleware/rateLimiter");
-const authRoutes = require("./src/routes/authRoutes")
+const authRoutes = require("./src/routes/authRoutes");
+const accountRoutes = require("./src/routes/accountsRoutes");
 const errorHandler = require("./src/middleware/errorHandler")
 const AppError = require("./src/utils/AppError");
 
@@ -20,7 +21,7 @@ app.get("/", (req, res) => {
 })
 
 app.use("/api/auth", authRoutes);
-app.use('/api/account', require('./routes/accountRoutes'));
+app.use('/api/account', accountRoutes);
 
 app.use((req, res, next) => {
     next(new AppError(`Route ${req.originalUrl} not found`, 404));
