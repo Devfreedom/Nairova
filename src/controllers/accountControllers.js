@@ -47,4 +47,4 @@ const createPin = async (req, res, next) => {
     }
 };
 
-module.exports = { getBalance };
+module.exports = { getBalance, createPin };
