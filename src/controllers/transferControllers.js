@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 
 const transfer = async (req, res, next) => {
   try {
-    const { receiverEmail, amount, pin } = req.body;
+    const { receiverAccountNumber, amount, pin } = req.body;
 
     
     if (!amount || amount <= 0) {
@@ -22,7 +22,7 @@ const transfer = async (req, res, next) => {
     }
 
   
-    const receiver = users.find((u) => u.email === receiverEmail);
+    const receiver = users.find((u) => u.accountNumber === receiverAccountNumber);
     if (!receiver) {
       throw new AppError('Receiver not found', 404);
     }

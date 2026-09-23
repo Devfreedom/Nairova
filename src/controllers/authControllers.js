@@ -14,6 +14,18 @@ const register = async (req, res, next) => {
             throw new AppError("Email is already registered", 409);
         }
 
+        const generateAccountNumber = () => {
+  // Generates a random 10-digit Accountnumber,
+  let accountNumber = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+  return accountNumber;
+};
+
+    let accountNumber;
+    do {
+      accountNumber = generateAccountNumber();
+    } while (users.find((user) => user.accountNumber === accountNumber));
+
+
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const newUser = {
@@ -23,7 +35,8 @@ const register = async (req, res, next) => {
             password: hashedPassword,
             role,
             balance: 0,
-            pin: null
+            pin: null,
+            accountNumber
         };
         users.push(newUser);
 
