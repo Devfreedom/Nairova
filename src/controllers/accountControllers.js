@@ -49,4 +49,40 @@ const createPin = async (req, res, next) => {
     }
 };
 
-module.exports = { getBalance, createPin };
+const updatePin = async (req, res, next) => {
+  try {
+    const { oldPin, newPin } = req.body;
+
+    if (!oldPin || !newPin || !/^\d{4}$/.test(newPin)) {
+      throw new AppError('Old PIN and a valid new 4-digit PIN are required', 400);
+    }
+
+    const user = users.find((u) => u.id === req.user.id);
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    if (!user.pin) {
+      throw new AppError('No PIN set yet. Use create instead.', 400);
+    }
+
+    const isMatch = await bcrypt.compare(oldPin, user.pin);
+
+    if (!isMatch) {
+      throw new AppError('Old PIN is incorrect', 403);
+    }
+
+    const hashedPin = await bcrypt.hash(newPin, 10);
+    user.pin = hashedPin;
+
+    res.status(200).json({
+      success: true,
+      message: 'PIN updated successfully',
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getBalance, createPin, updatePin };
