@@ -27,11 +27,14 @@ app.use((req, res, next) => {
     next(new AppError(`Route ${req.originalUrl} not found`, 404));
 });
 
-app.use((err, req, res, next) => {
-     console.error(err); // 
-     res.status(500).json({ success: false, message: 'Something went wrong' });
-   });
+// app.use((err, req, res, next) => {
+//      console.error(err); // 
+//      res.status(500).json({ success: false, message: 'Something went wrong' });
+//    });
 
+   app.use('/api/transfer', require('./src/routes/transferRoutes'))
+   app.use('/api/transfer', require('./routes/transferRoutes'));
+   
    app.use((err, req, res, next) => {
   console.error(err);
   const statusCode = err.statusCode || 500;
