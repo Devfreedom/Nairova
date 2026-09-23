@@ -5,6 +5,7 @@ const logger = require("./src/middleware/logger");
 const {apiLimiter} = require("./src/middleware/rateLimiter");
 const authRoutes = require("./src/routes/authRoutes");
 const accountRoutes = require("./src/routes/accountsRoutes");
+const transferRoutes = require("./src/routes/transferRoutes");
 const errorHandler = require("./src/middleware/errorHandler")
 const AppError = require("./src/utils/AppError");
 
@@ -22,20 +23,13 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use('/api/account', accountRoutes);
+app.use('/api/transfer', transferRoutes);   // ← moved up here, ABOVE the 404 handler
 
 app.use((req, res, next) => {
     next(new AppError(`Route ${req.originalUrl} not found`, 404));
 });
 
-// app.use((err, req, res, next) => {
-//      console.error(err); // 
-//      res.status(500).json({ success: false, message: 'Something went wrong' });
-//    });
-
-   app.use('/api/transfer', require('./src/routes/transferRoutes'))
-   app.use('/api/transfer', require('./src/routes/transferRoutes'));
-   
-   app.use((err, req, res, next) => {
+app.use((err, req, res, next) => {
   console.error(err);
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
@@ -43,8 +37,6 @@ app.use((req, res, next) => {
     message: err.message || 'Something went wrong',
   });
 });
-
-
 
 app.use(errorHandler);
 
