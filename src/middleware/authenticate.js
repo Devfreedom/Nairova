@@ -22,6 +22,8 @@ const authenticate = (req, res, next) => {
 
     req.user = { id: user.id, name: user.name, email: user.email, role: user.role };
     next();
+
+    req.user = decodedTokenPayload; 
   } catch (err) {
     next(new AppError("Invalid or expired token", 401));
   }

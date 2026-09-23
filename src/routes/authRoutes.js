@@ -4,7 +4,7 @@ const validateRegister = require("../middleware/validateRegister");
 const validateLogin = require("../middleware/validateLogin");
 const authenticate = require("../middleware/authenticate")
 const {authLimiter} = require("../middleware/rateLimiter");
-
+const {getBalance} = require("../controllers/accountControllers")
 const router = express.Router();
 
 router.post("/register", authLimiter, validateRegister, register);

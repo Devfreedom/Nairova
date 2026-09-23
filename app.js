@@ -20,6 +20,7 @@ app.get("/", (req, res) => {
 })
 
 app.use("/api/auth", authRoutes);
+app.use('/api/account', require('./routes/accountRoutes'));
 
 app.use((req, res, next) => {
     next(new AppError(`Route ${req.originalUrl} not found`, 404));
@@ -38,6 +39,8 @@ app.use((err, req, res, next) => {
     message: err.message || 'Something went wrong',
   });
 });
+
+
 
 app.use(errorHandler);
 
