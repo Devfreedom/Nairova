@@ -139,7 +139,9 @@ const verifyAccount = async (req, res, next) => {
             success: true,
             message: `${user.name}`
         })
+    }catch(err){
+
     }
 }
 
-module.exports = { getBalance, createPin, updatePin, deposit, verifyAccount };
+module.exports = { getBalance, createPin, updatePin, deposit, verifyAccount, getAllUsers };

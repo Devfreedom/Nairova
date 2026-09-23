@@ -12,7 +12,7 @@ const transfer = async (req, res, next) => {
     }
 
     if (!receiverAccountNumber) {
-      throw new AppError('Receiver account is required', 400);
+      throw new AppError('Receiver account Number is required', 400);
     }
     
     if (!pin) {

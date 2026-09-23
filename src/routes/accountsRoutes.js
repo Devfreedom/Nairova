@@ -9,5 +9,6 @@ router.post('/pin/create', authenticate, createPin);
 router.put('/pin/update', authenticate, updatePin);
 router.post('/deposit', authenticate, deposit)
 router.post('/verify/:accountNumber', authenticate, verifyAccount);
+router.get('/users', authenticate, authorize, getAllUsers);
 
 module.exports = router;
