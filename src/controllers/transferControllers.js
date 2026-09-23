@@ -11,10 +11,13 @@ const transfer = async (req, res, next) => {
       throw new AppError('Amount must be greater than zero', 400);
     }
 
-    if (!receiverEmail || !pin) {
-      throw new AppError('Receiver email and PIN are required', 400);
+    if (!receiverAccountNumber) {
+      throw new AppError('Receiver account is required', 400);
     }
-
+    
+    if (!pin) {
+      throw new AppError ('Your transaction pin is required', 400)
+    }
     
     const sender = users.find((u) => u.id === req.user.id);
     if (!sender) {
