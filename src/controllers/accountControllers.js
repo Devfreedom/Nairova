@@ -125,10 +125,10 @@ const verifyAccount = async (req, res, next) => {
     try {
         const {receiverAccountNumber} = req.params.receiverAccountNumber;
 
-        const account = users.find((u) => u.accountNumber === accountNumber);
+        const account = users.find((u) => u.accountNumber === receiverAccountNumber);
         
         if(!account) {
-            throw new AppError('Receiver Accountnumber not found !', 404)
+            throw new AppError('Receiver Account not found !', 404)
         }
 
         if(receiverAccountNumber !== account.accountNumber){
@@ -143,5 +143,16 @@ const verifyAccount = async (req, res, next) => {
 
     }
 }
+
+const getAllUsers = async (req, res, next) => {
+  try {
+    res.status(200).json({
+      success: true,
+      users,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
 module.exports = { getBalance, createPin, updatePin, deposit, verifyAccount, getAllUsers };

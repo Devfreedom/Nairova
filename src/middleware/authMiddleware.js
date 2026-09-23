@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-
+const AppError = require('../utils/AppError');
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const authenticate = (req, res, next) => {
@@ -20,4 +20,11 @@ const authenticate = (req, res, next) => {
   }
 };
 
-module.exports = authenticate;
+const authorize = (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    return next(new AppError('Access denied. Admins only.', 403));
+  }
+  next();
+};
+
+module.exports = { authenticate, authorize };
