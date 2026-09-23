@@ -85,4 +85,40 @@ const updatePin = async (req, res, next) => {
   }
 };
 
-module.exports = { getBalance, createPin, updatePin };
+const deposit = async (req, res, next) => {
+  try {
+    const { amount } = req.body;
+
+    if (!amount || amount <= 0) {
+      throw new AppError('Amount must be greater than zero', 400);
+    }
+
+    const user = users.find((u) => u.id === req.user.id);
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    user.balance += amount;
+
+    const newTransaction = {
+      id: getNextId(),
+      type: 'deposit',
+      receiverId: user.id,
+      amount,
+      status: 'success',
+      timestamp: new Date(),
+    };
+    transactions.push(newTransaction);
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully deposited ${amount}`,
+      newBalance: user.balance,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getBalance, createPin, updatePin, deposit };
