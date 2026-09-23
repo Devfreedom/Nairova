@@ -15,4 +15,6 @@ router.get("/me", authenticate, (req, res) => {
     res.status(200).json({success: true, data: req.user});
 });
 
+router.get('/balance', authenticate, getBalance);
+
 module.exports = router;

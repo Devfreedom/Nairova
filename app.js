@@ -30,6 +30,15 @@ app.use((err, req, res, next) => {
      res.status(500).json({ success: false, message: 'Something went wrong' });
    });
 
+   app.use((err, req, res, next) => {
+  console.error(err);
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    success: false,
+    message: err.message || 'Something went wrong',
+  });
+});
+
 app.use(errorHandler);
 
 module.exports = app
