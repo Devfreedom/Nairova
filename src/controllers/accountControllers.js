@@ -1,4 +1,4 @@
-const { users } = require("../data/users");
+const { users, transactions, getNextId } = require("../data/users");
 const bcrypt = require("bcrypt");
 const AppError = require("../utils/AppError")
 
