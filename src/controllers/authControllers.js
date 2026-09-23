@@ -22,6 +22,8 @@ const register = async (req, res, next) => {
             email,
             password: hashedPassword,
             role,
+            balance: 0,
+            pin: null
         };
         users.push(newUser);
 
