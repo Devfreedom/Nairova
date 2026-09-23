@@ -8,7 +8,7 @@ const {authLimiter} = require("../middleware/rateLimiter");
 const router = express.Router();
 
 router.post("/register", authLimiter, validateRegister, register);
-router.post("/login", authLimiter, validateLogin, login)
+router.post("/login", authLimiter, validateLogin, login);
 
 // temporary route for test 
 router.get("/me", authenticate, (req, res) => {
