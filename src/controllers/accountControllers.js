@@ -121,4 +121,25 @@ const deposit = async (req, res, next) => {
   }
 };
 
-module.exports = { getBalance, createPin, updatePin, deposit };
+const verifyAccount = async (req, res, next) => {
+    try {
+        const {receiverAccountNumber} = req.params.receiverAccountNumber;
+
+        const account = users.find((u) => u.accountNumber === accountNumber);
+        
+        if(!account) {
+            throw new AppError('Receiver Accountnumber not found !', 404)
+        }
+
+        if(receiverAccountNumber !== account.accountNumber){
+            throw new AppError('Receiver Accountnumber is not Correct', 404)
+        }
+        
+        res.status(200).json({
+            success: true,
+            message: `${user.name}`
+        })
+    }
+}
+
+module.exports = { getBalance, createPin, updatePin, deposit, verifyAccount };

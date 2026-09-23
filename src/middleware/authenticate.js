@@ -22,11 +22,18 @@ const authenticate = (req, res, next) => {
 
     req.user = { id: user.id, name: user.name, email: user.email, role: user.role };
     next();
-
-    req.user = decodedTokenPayload; 
   } catch (err) {
     next(new AppError("Invalid or expired token", 401));
   }
 };
 
+const authorize = (req, res, next) => {
+  if (!req.user || req.user.role !== "admin") {
+    return next(new AppError("Access denied. Admins only.", 403));
+  }
+
+  next();
+};
+
 module.exports = authenticate;
+module.exports.authorize = authorize;
