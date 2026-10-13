@@ -23,7 +23,7 @@ router.post('/email/request', authenticate, authLimiter, settings.requestEmailVe
 router.post('/email/verify', authenticate, authLimiter, validateEmailVerify, settings.verifyEmail);
 router.get('/preferences', authenticate, settings.getPrefs);
 router.patch('/preferences', authenticate, validatePreferences, settings.patchPrefs);
-router.put('/password', authenticate, authLimiter, settings.changePassword);
+router.put('/password', authenticate, authLimiter, validatePasswordChange, settings.changePassword);
 // Legacy admin listing kept for compatibility; sanitized and admin-only.
 router.get('/users', authenticate, authorize, getAllUsers);
 
