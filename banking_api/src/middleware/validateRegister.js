@@ -1,7 +1,7 @@
 const AppError = require("../utils/AppError");
+const { PASSWORD_REGEX, PASSWORD_REQUIREMENTS } = require("../utils/password");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
 
 const validateRegister = (req, res, next) => {
   const { name, email, password } = req.body || {};
@@ -16,9 +16,7 @@ const validateRegister = (req, res, next) => {
   }
 
   if (typeof password !== "string" || !PASSWORD_REGEX.test(password)) {
-    errors.push(
-      "Password must be at least 6 characters and include an uppercase letter, a lowercase letter, a number and a special character"
-    );
+    errors.push(PASSWORD_REQUIREMENTS);
   }
 
   // NOTE: public registration never accepts a client-supplied role.
