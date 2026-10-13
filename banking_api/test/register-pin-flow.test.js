@@ -23,6 +23,30 @@ describe("registration PIN flow", () => {
     await teardown(server);
   });
 
+  it("creates no partial user when PIN confirmation fails", async () => {
+    const bad = await api(base, "POST", "/api/auth/register", {
+      body: {
+        name: "Half User", identifier: "08010000007", password: "Halfuser1!",
+        pin: "1111", pinConfirm: "9999",
+      },
+    });
+    assert.equal(bad.status, 400);
+
+    // No user was persisted, so login with the identifier fails...
+    const noLogin = await login(base, "08010000007", "Halfuser1!");
+    assert.equal(noLogin.status, 401);
+
+    // ...and the identifier is still free for a correct registration.
+    const good = await api(base, "POST", "/api/auth/register", {
+      body: {
+        name: "Half User", identifier: "08010000007", password: "Halfuser1!",
+        pin: "1111", pinConfirm: "1111",
+      },
+    });
+    assert.equal(good.status, 201);
+    assert.equal(good.data.data.pinSet, true);
+  });
+
   it("lets a newly registered user transfer immediately with the chosen PIN", async () => {
     const reg = await api(base, "POST", "/api/auth/register", {
       body: {
