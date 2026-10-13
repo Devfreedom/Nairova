@@ -259,7 +259,7 @@ async function insertLedgerRow(client, { type, senderId, receiverId, adminId, am
 async function findUserByEmail(email, client) {
   const db = client || getPool();
   const { rows } = await db.query(
-    `SELECT u.id AS user_id, u.name, u.email, u.phone, u.role, u.password_hash, u.pin_hash,
+    `SELECT u.id AS user_id, u.name, u.email, u.phone, u.role, u.password_hash, u.pin_hash, u.email_verified,
             u.created_at AS user_created_at,
             a.id AS account_id, a.account_number, a.balance, a.currency
      FROM users u JOIN accounts a ON a.user_id = u.id
@@ -272,7 +272,7 @@ async function findUserByEmail(email, client) {
 async function findUserByPhone(phone, client) {
   const db = client || getPool();
   const { rows } = await db.query(
-    `SELECT u.id AS user_id, u.name, u.email, u.phone, u.role, u.password_hash, u.pin_hash,
+    `SELECT u.id AS user_id, u.name, u.email, u.phone, u.role, u.password_hash, u.pin_hash, u.email_verified,
             u.created_at AS user_created_at,
             a.id AS account_id, a.account_number, a.balance, a.currency
      FROM users u JOIN accounts a ON a.user_id = u.id
@@ -290,7 +290,7 @@ async function findUserByIdentifier({ kind, value }, client) {
 async function findUserById(id, client) {
   const db = client || getPool();
   const { rows } = await db.query(
-    `SELECT u.id AS user_id, u.name, u.email, u.phone, u.role, u.password_hash, u.pin_hash,
+    `SELECT u.id AS user_id, u.name, u.email, u.phone, u.role, u.password_hash, u.pin_hash, u.email_verified,
             u.created_at AS user_created_at,
             a.id AS account_id, a.account_number, a.balance, a.currency
      FROM users u JOIN accounts a ON a.user_id = u.id
@@ -353,6 +353,12 @@ async function registerUser({ name, email, phone, passwordHash, pinHash }) {
       await client.query("DELETE FROM users WHERE id = $1", [userId]);
       throw new AppError("Could not allocate an account number. Please try again.", 500);
     }
+    // Every account owns a preferences row (defaults: in-app on, email off,
+    // appearance follows the system). Legacy rows are backfilled by migration.
+    await client.query(
+      `INSERT INTO user_preferences (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+      [userId]
+    );
     await client.query("COMMIT");
     return { id: userId, name, email: email || null, phone: phone || null, role: "user", balance: 0, pinSet: true, accountNumber };
   } catch (err) {
