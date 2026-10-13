@@ -33,7 +33,6 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
             </p>
           )}
         </div>
-        <p className="t-muted text-center text-xs">Classroom simulator — all funds are simulated, not real money.</p>
       </section>
       <aside aria-hidden="true" className="anim-in relative hidden overflow-hidden bg-forest lg:block lg:w-[60%]" style={{ "--d": "0.2s" }}>
         <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #10382F 0%, #176B50 70%, #0d2b25 100%)" }} />
@@ -73,9 +72,6 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
             <span className="absolute left-44 top-1/2 h-24 w-24 -translate-y-1/2 rounded-full" style={{ background: "rgba(184, 242, 210, 0.16)" }} />
             <span className="absolute left-56 top-8 h-10 w-10 rounded-full" style={{ background: "rgba(184, 242, 210, 0.28)" }} />
           </div>
-          <p className="max-w-md text-sm leading-relaxed text-emerald-100/90">
-            Send simulated funds between classroom accounts, verify recipients, and review every transaction — clearly and calmly.
-          </p>
         </div>
       </aside>
     </div>
