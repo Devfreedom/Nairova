@@ -12,7 +12,8 @@ router.post("/login", authLimiter, validateLogin, login);
 
 // temporary route for test 
 router.get("/me", authenticate, (req, res) => {
-    res.status(200).json({success: true, data: req.user});
+    const { password, pin, ...safe } = require("../data/users").users.find((u) => u.id === req.user.id) || req.user;
+    res.status(200).json({success: true, data: safe});
 });
 
 router.get('/balance', authenticate, getBalance);
