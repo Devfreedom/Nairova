@@ -19,7 +19,7 @@ describe("settings", () => {
     base = baseUrl(server);
 
     const a = await api(base, "POST", "/api/auth/register", { // 1
-      body: { name: "Settings легко", identifier: "08030000001", password: "Settings1!", pin: "1111", pinConfirm: "1111" },
+      body: { name: "Settings Alpha", identifier: "08030000001", password: "Settings1!", pin: "1111", pinConfirm: "1111" },
     });
     assert.equal(a.status, 201);
     tokenA = (await login(base, "08030000001", "Settings1!")).data.token; // 2
