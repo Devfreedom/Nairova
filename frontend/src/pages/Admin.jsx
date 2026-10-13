@@ -79,7 +79,15 @@ export default function Admin() {
         <h1 className="text-xl font-bold">Admin dashboard</h1>
         <p className="mt-1 text-sm text-slate-500">Credit customer accounts with <strong>simulated test funds</strong>. Every credit is recorded.</p>
         <Alert>{error}</Alert>
-        <Alert kind="success">{success}</Alert>
+        {receipt && (
+          <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">
+            Credited <strong>{formatNaira(receipt.amount)}</strong> (simulated) to{" "}
+            <strong>{receipt.name}</strong>
+            {receipt.email ? ` (${receipt.email})` : ""}, acct{" "}
+            <span className="font-mono">{receipt.accountNumber}</span>. New balance:{" "}
+            <strong>{receipt.newBalance !== undefined ? formatNaira(receipt.newBalance) : "—"}</strong>.
+          </div>
+        )}
 
         <form onSubmit={onCredit} className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
           <label className="block">
@@ -90,16 +98,42 @@ export default function Admin() {
               maxLength={10}
               placeholder="10-digit account"
               value={accountNumber}
-              onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ""))}
+              onChange={(e) => { setAccountNumber(e.target.value.replace(/\D/g, "")); setReceipt(null); }}
+              disabled={busy}
               required
             />
           </label>
           <label className="block">
             <span className="label">Amount (₦, simulated)</span>
-            <input className="field" inputMode="decimal" placeholder="e.g. 5000" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+            <input
+              className="field"
+              inputMode="decimal"
+              placeholder="e.g. 100,000.50"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              disabled={busy}
+              required
+            />
+            {amount.trim() !== "" && preview.ok && (
+              <span className="mt-1 block text-xs text-slate-500">= {formatNaira(preview.value)} will be credited</span>
+            )}
           </label>
           <button className="btn-primary md:self-end" disabled={busy}>{busy ? "Crediting…" : "Credit account"}</button>
         </form>
+
+        {/^\d{10}$/.test(accountNumber.trim()) && (
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm" aria-live="polite">
+            {selected ? (
+              <p>
+                Recipient: <strong>{selected.name}</strong> ({selected.email}) · acct{" "}
+                <span className="font-mono">{selected.accountNumber}</span> · current balance{" "}
+                <strong>{formatNaira(selected.balance)}</strong>
+              </p>
+            ) : (
+              !loading && <p className="text-amber-800">No customer found with account number {accountNumber.trim()}.</p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="card">
@@ -128,7 +162,11 @@ export default function Admin() {
                     <td className="py-2 pr-2 font-mono text-xs">{u.accountNumber}</td>
                     <td className="py-2 pr-2 font-semibold">{formatNaira(u.balance)}</td>
                     <td className="py-2">
-                      <button className="btn-secondary px-3 py-1 text-xs" onClick={() => setAccountNumber(u.accountNumber)}>
+                      <button
+                        className="btn-secondary px-3 py-1 text-xs"
+                        disabled={busy}
+                        onClick={() => { setAccountNumber(u.accountNumber); setReceipt(null); }}
+                      >
                         Select
                       </button>
                     </td>
