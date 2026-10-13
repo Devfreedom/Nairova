@@ -1,15 +1,52 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, userIdentifier } from "../auth/AuthContext";
+import { BrandMark, Icons, ThemeToggle } from "./ui";
 
-function NavItem({ to, children }) {
+function initials(name) {
+  if (!name) return "?";
+  return name.trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase();
+}
+
+function SideLink({ to, icon, children, end }) {
   return (
     <NavLink
       to={to}
+      end={end}
       className={({ isActive }) =>
-        `rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-emerald-700 text-white" : "text-slate-600 hover:bg-slate-100"}`
+        `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+          isActive
+            ? "bg-[var(--brand)] text-white dark:text-[#101C35]"
+            : "t-muted hover:t-text hover:bg-[var(--surface-2)]"
+        }`
+      }
+      style={({ isActive }) =>
+        isActive ? { background: "var(--brand)", color: "var(--brand-ink)" } : undefined
       }
     >
+      <span aria-hidden="true">{icon}</span>
       {children}
+    </NavLink>
+  );
+}
+
+function TabItem({ to, icon, label, end }) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      aria-label={label}
+      className="flex min-h-[56px] min-w-[64px] flex-1 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-medium"
+      style={({ isActive }) => ({
+        color: isActive ? "var(--brand-strong)" : "var(--muted)",
+        background: isActive ? "var(--surface-2)" : "transparent",
+      })}
+    >
+      {({ isActive }) => (
+        <>
+          <span aria-hidden="true" style={isActive ? { transform: "translateY(-1px)" } : undefined}>{icon}</span>
+          <span aria-current={isActive ? "page" : undefined}>{label}</span>
+        </>
+      )}
     </NavLink>
   );
 }
@@ -24,34 +61,82 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-          <Link to="/" className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-700 text-lg font-bold text-white">₦</span>
-            <span className="font-bold text-slate-900">BankApp <span className="font-normal text-slate-500">Classroom</span></span>
-          </Link>
+    <div className="t-bg min-h-screen md:flex">
+      {/* Desktop sidebar */}
+      <aside className="t-surface t-border sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r p-4 md:flex" aria-label="Primary">
+        <Link to="/" className="flex items-center gap-2 px-2 py-2">
+          <BrandMark />
+          <span className="t-text text-lg font-bold tracking-tight">Nairova</span>
+        </Link>
+        <nav className="mt-6 flex flex-1 flex-col gap-1">
+          <SideLink to="/" end icon={Icons.home}>Dashboard</SideLink>
+          <SideLink to="/transfer" icon={Icons.send}>Transfer</SideLink>
+          <SideLink to="/history" icon={Icons.clock}>Transaction History</SideLink>
+          {isAdmin && <SideLink to="/admin" icon={Icons.shield}>Admin</SideLink>}
+        </nav>
+        <div className="t-border border-t pt-4">
+          <div className="mb-3 flex items-center justify-between px-2">
+            <span className="t-muted text-xs font-semibold uppercase tracking-wide">Theme</span>
+            <ThemeToggle />
+          </div>
           {user ? (
-            <nav className="flex items-center gap-1">
-              <NavItem to="/">Home</NavItem>
-              <NavItem to="/transfer">Transfer</NavItem>
-              <NavItem to="/history">History</NavItem>
-              {isAdmin && <NavItem to="/admin">Admin</NavItem>}
-              <button onClick={handleLogout} className="rounded-lg px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50">
+            <div className="flex items-center gap-2 px-2">
+              <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] text-xs font-bold t-text">
+                {initials(user.name)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="t-text truncate text-sm font-semibold">{user.name}</p>
+                <p className="t-muted truncate text-xs">{userIdentifier(user)}</p>
+              </div>
+              <button onClick={handleLogout} className="t-muted rounded-lg px-2 py-1 text-xs font-semibold hover:t-text hover:underline">
                 Logout
               </button>
-            </nav>
+            </div>
           ) : (
-            <nav className="flex items-center gap-1">
-              <NavItem to="/login">Login</NavItem>
-              <NavItem to="/register">Register</NavItem>
+            <nav className="flex flex-col gap-1">
+              <SideLink to="/login" icon={Icons.user}>Login</SideLink>
+              <SideLink to="/register" icon={Icons.id}>Register</SideLink>
             </nav>
           )}
         </div>
-      </header>
+      </aside>
 
-      <div className="mx-auto max-w-5xl px-4 py-6">
-        {children}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Mobile top bar */}
+        <header className="t-surface t-border sticky top-0 z-10 border-b md:hidden">
+          <div className="flex items-center justify-between px-4 py-3">
+            <Link to="/" className="flex items-center gap-2">
+              <BrandMark size={32} />
+              <span className="t-text font-bold tracking-tight">Nairova</span>
+            </Link>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              {user && (
+                <button onClick={handleLogout} className="t-muted rounded-lg px-2 py-1 text-sm font-semibold">
+                  Logout
+                </button>
+              )}
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-28 pt-6 md:pb-10">
+          {children}
+        </main>
+
+        {/* Mobile-only bottom tab bar */}
+        {user && (
+          <nav
+            aria-label="Primary"
+            className="t-surface t-border fixed inset-x-0 bottom-0 z-10 flex gap-1 border-t px-3 pt-2 md:hidden"
+            style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}
+          >
+            <TabItem to="/" end icon={Icons.home} label="Home" />
+            <TabItem to="/transfer" icon={Icons.send} label="Transfer" />
+            <TabItem to="/history" icon={Icons.clock} label="History" />
+            {isAdmin && <TabItem to="/admin" icon={Icons.shield} label="Admin" />}
+          </nav>
+        )}
       </div>
     </div>
   );
