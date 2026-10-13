@@ -38,7 +38,13 @@ export default function History() {
     load();
   }, []);
 
-  let lastGroup = null;
+  let lastGroup = "";
+  const rows = txns.map((t) => {
+    const group = groupLabel(t.timestamp) || "";
+    const showGroup = group !== lastGroup;
+    lastGroup = group;
+    return { txn: t, group, showGroup };
+  });
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -54,12 +60,9 @@ export default function History() {
             <Empty title="No transactions yet" hint="Simulated credits and transfers will appear here." />
           ) : (
             <ul className="t-border divide-y">
-              {txns.map((t) => {
+              {rows.map(({ txn: t, group, showGroup }) => {
                 const sign = signedAmount(t, user?.id);
                 const incoming = sign >= 0;
-                const group = groupLabel(t.timestamp);
-                const showGroup = group && group !== lastGroup;
-                lastGroup = group;
                 return (
                   <li key={t.id}>
                     {showGroup && (
