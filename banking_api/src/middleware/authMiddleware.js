@@ -1,8 +1,8 @@
 const jwt = require('jsonwebtoken');
 const AppError = require('../utils/AppError');
-const { users } = require('../data/users');
+const { findUserById } = require('../db/store');
 
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -17,13 +17,16 @@ const authenticate = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = users.find((u) => u.id === decoded.id);
+    // Identity and role are loaded from the database so stale token claims
+    // cannot grant outdated privileges.
+    const user = await findUserById(decoded.id);
     if (!user) {
       return next(new AppError('User no longer exists', 401));
     }
     req.user = { id: user.id, name: user.name, email: user.email, role: user.role, accountNumber: user.accountNumber };
     next();
   } catch (error) {
+    if (error instanceof AppError) return next(error);
     return next(new AppError('Invalid or expired token', 401));
   }
 };

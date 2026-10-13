@@ -1,16 +1,21 @@
-const { users, transactions, getNextId } = require("../data/users");
 const bcrypt = require("bcrypt");
 const AppError = require("../utils/AppError");
 const { normalizeAmount } = require("../utils/money");
 const { PASSWORD_REGEX, PASSWORD_REQUIREMENTS } = require("../utils/password");
-const { sanitizeUser } = require("./accountControllers");
+const {
+  listUsers,
+  findUserById,
+  updatePasswordHash,
+  adminCredit: storeAdminCredit,
+} = require("../db/store");
 
 // Admin-only: list customers without exposing password/PIN hashes.
 const listCustomers = async (req, res, next) => {
   try {
+    const customers = await listUsers();
     res.status(200).json({
       success: true,
-      data: users.map(sanitizeUser),
+      data: customers,
     });
   } catch (err) {
     next(err);
@@ -18,7 +23,7 @@ const listCustomers = async (req, res, next) => {
 };
 
 // Admin-only: credit a customer with simulated demo funds.
-// Records admin identity, recipient, amount, operation type, timestamp, status.
+// Executes as one database transaction and reports the persisted balance.
 const creditAccount = async (req, res, next) => {
   try {
     const { accountNumber, amount: rawAmount } = req.body;
@@ -33,33 +38,22 @@ const creditAccount = async (req, res, next) => {
     }
     const amount = parsed.value;
 
-    const recipient = users.find((u) => u.accountNumber === String(accountNumber).trim());
-    if (!recipient) {
+    const result = await storeAdminCredit({
+      adminId: req.user.id,
+      accountNumber: String(accountNumber).trim(),
+      amountText: amount.toFixed(2),
+    });
+
+    if (!result) {
       throw new AppError("Recipient account not found", 404);
     }
 
-    recipient.balance = Math.round((recipient.balance + amount) * 100) / 100;
-
-    const record = {
-      id: getNextId(),
-      type: "admin_credit",
-      senderId: req.user.id,
-      senderAccountNumber: req.user.accountNumber || null,
-      adminEmail: req.user.email,
-      receiverId: recipient.id,
-      receiverAccountNumber: recipient.accountNumber,
-      amount,
-      status: "success",
-      timestamp: new Date(),
-    };
-    transactions.push(record);
-
     res.status(200).json({
       success: true,
-      message: `Credited ${amount} (simulated funds) to ${recipient.name}`,
+      message: `Credited ${amount} (simulated funds) to ${result.recipientName}`,
       data: {
-        transaction: record,
-        newBalance: recipient.balance,
+        transaction: result.transaction,
+        newBalance: result.newBalance,
       },
     });
   } catch (err) {
@@ -68,8 +62,8 @@ const creditAccount = async (req, res, next) => {
 };
 
 // Admin-only: reset a customer's forgotten password.
-// Identifies the target by unambiguous user ID. Only the bcrypt hash is stored;
-// account number, balance, PIN, role, and history are left untouched.
+// Only the stored bcrypt hash changes; account number, balance, PIN, role,
+// and transaction history are left untouched.
 const resetCustomerPassword = async (req, res, next) => {
   try {
     const { userId, newPassword, confirmPassword } = req.body || {};
@@ -87,7 +81,7 @@ const resetCustomerPassword = async (req, res, next) => {
       throw new AppError("Password confirmation does not match", 400);
     }
 
-    const target = users.find((u) => u.id === id);
+    const target = await findUserById(id);
     if (!target) {
       throw new AppError("Customer account not found", 404);
     }
@@ -96,7 +90,7 @@ const resetCustomerPassword = async (req, res, next) => {
       throw new AppError("Only customer passwords can be reset through this endpoint", 403);
     }
 
-    target.password = await bcrypt.hash(newPassword, 10);
+    await updatePasswordHash(target.id, await bcrypt.hash(newPassword, 10));
 
     res.status(200).json({
       success: true,
