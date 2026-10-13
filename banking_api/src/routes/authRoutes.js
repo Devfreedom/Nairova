@@ -6,6 +6,7 @@ const authenticate = require("../middleware/authenticate")
 const {authLimiter} = require("../middleware/rateLimiter");
 const {getBalance} = require("../controllers/accountControllers")
 const { findUserById } = require("../db/store");
+const { getPreferences } = require("../db/store");
 const router = express.Router();
 
 router.post("/register", authLimiter, validateRegister, register);
@@ -19,7 +20,13 @@ router.get("/me", authenticate, async (req, res, next) => {
             return res.status(401).json({ success: false, message: "User no longer exists" });
         }
         const { passwordHash, pinHash, createdAt, accountId, currency, ...safe } = user;
-        res.status(200).json({success: true, data: safe});
+        // Additive Phase 6 fields: verification state and preferences travel
+        // with the session profile so Settings renders without extra calls.
+        const preferences = await getPreferences(req.user.id);
+        res.status(200).json({
+          success: true,
+          data: { ...safe, emailVerified: user.emailVerified === true, preferences },
+        });
     } catch (err) {
         next(err);
     }
