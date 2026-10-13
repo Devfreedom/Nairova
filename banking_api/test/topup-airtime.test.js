@@ -278,3 +278,49 @@ describe("topup airtime purchases", () => {
   });
 
   it("converges an aborted connection into exactly one purchase", async () => {
+    const before = await balance();
+    const counts = await rowCounts();
+    const key = randomUUID();
+    const payload = {
+      recipientMsisdn: "08012345678", network: "MTN", amount: 900, pin: "4545", idempotencyKey: key,
+    };
+
+    // Destroy the socket mid-flight without reading the response: whether
+    // the server commits before or after the destroy, the same-key retry
+    // must converge to exactly one purchase (fresh execution or replay).
+    await new Promise((resolve) => {
+      const url = new URL("/api/topup/airtime", base);
+      const body = JSON.stringify(payload);
+      const req = http.request(
+        {
+          hostname: url.hostname,
+          port: url.port,
+          path: url.pathname,
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(body),
+            Authorization: `Bearer ${userToken}`,
+          },
+        },
+        (res) => res.resume()
+      );
+      req.on("error", () => resolve());
+      req.end(body);
+      setTimeout(() => {
+        req.destroy();
+        resolve();
+      }, 150);
+    });
+
+    const retry = await api(base, "POST", "/api/topup/airtime", { token: userToken, body: payload });
+    assert.equal(retry.status, 200);
+    assert.equal(await balance(), before - 900);
+    const after = await rowCounts();
+    assert.equal(after.transactions, counts.transactions + 1);
+    assert.equal(after.purchases, counts.purchases + 1);
+    const pool = await testPool();
+    const rows = await pool.query("SELECT COUNT(*)::int AS n FROM notifications WHERE reference = $1", [retry.data.reference]);
+    assert.equal(rows.rows[0].n, 1);
+  });
+});
