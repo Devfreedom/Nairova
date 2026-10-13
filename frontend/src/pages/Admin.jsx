@@ -32,21 +32,33 @@ export default function Admin() {
 
   async function onCredit(e) {
     e.preventDefault();
+    if (busy) return;
     setError("");
-    setSuccess("");
-    const amt = Number(amount);
-    if (!/^\d{10}$/.test(accountNumber.trim())) {
+    setReceipt(null);
+    const acct = accountNumber.trim();
+    if (!/^\d{10}$/.test(acct)) {
       setError("Select an account (10 digits) to credit.");
       return;
     }
-    if (!Number.isFinite(amt) || amt <= 0) {
-      setError("Enter an amount greater than zero.");
+    const parsed = parseAmount(amount);
+    if (!parsed.ok) {
+      setError(parsed.error);
       return;
     }
+    const recipient = users.find((u) => u.accountNumber === acct);
     setBusy(true);
     try {
-      const res = await api.adminCredit(accountNumber.trim(), amt);
-      setSuccess(`${res.message}. New balance: ${formatNaira(res.data?.newBalance)}.`);
+      // Normalized numeric amount goes to the API; the receipt below is built
+      // only from the confirmed server response.
+      const res = await api.adminCredit(acct, parsed.value);
+      const txn = res.data?.transaction;
+      setReceipt({
+        name: recipient?.name || txn?.receiverName || "Customer",
+        email: recipient?.email || "",
+        accountNumber: txn?.receiverAccountNumber || acct,
+        amount: txn?.amount ?? parsed.value,
+        newBalance: res.data?.newBalance,
+      });
       setAmount("");
       await load();
     } catch (err) {
@@ -55,6 +67,11 @@ export default function Admin() {
       setBusy(false);
     }
   }
+
+  const selected = /^\d{10}$/.test(accountNumber.trim())
+    ? users.find((u) => u.accountNumber === accountNumber.trim())
+    : null;
+  const preview = parseAmount(amount);
 
   return (
     <div className="space-y-4">
