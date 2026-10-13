@@ -151,12 +151,23 @@ function nairaText(amountText) {
 }
 
 async function createNotification(client, { userId, eventType, title, message, reference, destination, dedupeKey }) {
+  // The recipient's in-app preference is enforced here, inside the same
+  // transaction: opted-out users get no row. A missing preferences row
+  // (legacy) means enabled.
+  const { rows } = await client.query(
+    `SELECT inapp_money_events FROM user_preferences WHERE user_id = $1`,
+    [userId]
+  );
+  if (rows.length && rows[0].inapp_money_events === false) {
+    return { skipped: true };
+  }
   await client.query(
     `INSERT INTO notifications (user_id, event_type, title, message, reference, destination, dedupe_key)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (user_id, dedupe_key) DO NOTHING`,
     [userId, eventType, title, message, reference || null, destination || null, dedupeKey]
   );
+  return { created: true };
 }
 
 function mapNotification(r) {
@@ -387,6 +398,205 @@ async function setPinHash(userId, pinHash) {
     [pinHash, userId]
   );
   return rowCount > 0;
+}
+
+// ---- Settings: profile, verification, preferences (Phase 6) ---------------
+// All mutations are owner-scoped by userId (from the authenticated session,
+// never from client-supplied ids). Email changes reset verification; only a
+// consumed single-use token bound to the current address can re-verify.
+
+async function updateProfile(userId, { name, email, phone, emailChanged }) {
+  try {
+    const { rows } = await getPool().query(
+      `UPDATE users SET name = $2, email = $3, phone = $4,
+         email_verified = CASE WHEN $5 THEN FALSE ELSE email_verified END
+       WHERE id = $1
+       RETURNING id, name, email, phone, email_verified`,
+      [userId, name, email, phone, emailChanged]
+    );
+    if (!rows.length) return null;
+    const r = rows[0];
+    return { id: r.id, name: r.name, email: r.email, phone: r.phone, emailVerified: r.email_verified === true };
+  } catch (err) {
+    if (isUniqueViolation(err, "users_email_unique")) {
+      throw new AppError(DUPLICATE_EMAIL_MESSAGE, 409);
+    }
+    if (isUniqueViolation(err, "users_phone_unique")) {
+      throw new AppError(DUPLICATE_PHONE_MESSAGE, 409);
+    }
+    if (isUniqueViolation(err)) {
+      const constraint = String(err.constraint || "");
+      if (constraint.includes("phone")) throw new AppError(DUPLICATE_PHONE_MESSAGE, 409);
+      throw new AppError(DUPLICATE_EMAIL_MESSAGE, 409);
+    }
+    if (err && err.code === "23514") {
+      throw new AppError("At least one of email or phone number is required", 400);
+    }
+    throw err;
+  }
+}
+
+function hashVerificationToken(token) {
+  return crypto.createHash("sha256").update(String(token), "utf8").digest("hex");
+}
+
+// Issues a single-use 15-minute token for the user's CURRENT email address.
+// Only the hash is stored; the raw token is returned once to the caller.
+async function createEmailVerificationToken(userId, email) {
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = hashVerificationToken(token);
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // One active token per user: supersede prior unused ones.
+    await client.query(
+      `UPDATE email_verification_tokens SET used_at = now() WHERE user_id = $1 AND used_at IS NULL`,
+      [userId]
+    );
+    await client.query(
+      `INSERT INTO email_verification_tokens (user_id, email, token_hash, expires_at)
+       VALUES ($1, $2, $3, now() + INTERVAL '15 minutes')`,
+      [userId, email, tokenHash]
+    );
+    await client.query("COMMIT");
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (_) {
+      // Original error takes precedence.
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+  return token;
+}
+
+// Consumes a token: unused, unexpired, and bound to the user's current email.
+// Anything else fails closed without distinguishing the reason.
+async function consumeEmailVerificationToken(userId, token) {
+  const tokenHash = hashVerificationToken(token);
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query(
+      `SELECT id, email FROM email_verification_tokens
+       WHERE token_hash = $1 AND user_id = $2 AND used_at IS NULL AND expires_at > now()
+       FOR UPDATE`,
+      [tokenHash, userId]
+    );
+    if (!rows.length) {
+      await client.query("ROLLBACK");
+      return { ok: false };
+    }
+    const user = await findUserById(userId, client);
+    if (!user || !user.email || user.email !== rows[0].email) {
+      await client.query("ROLLBACK");
+      return { ok: false };
+    }
+    await client.query(`UPDATE email_verification_tokens SET used_at = now() WHERE id = $1`, [rows[0].id]);
+    await client.query(`UPDATE users SET email_verified = TRUE WHERE id = $1`, [userId]);
+    await client.query("COMMIT");
+    return { ok: true, email: rows[0].email };
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (_) {
+      // Original error takes precedence.
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+function mapPreferences(r) {
+  return {
+    inappMoneyEvents: r.inapp_money_events !== false,
+    emailMoneyEvents: r.email_money_events === true,
+    emailMarketing: r.email_marketing === true,
+    theme: ["light", "dark", "system"].includes(r.theme) ? r.theme : "system",
+  };
+}
+
+async function getPreferences(userId) {
+  const { rows } = await getPool().query(
+    `SELECT inapp_money_events, email_money_events, email_marketing, theme
+     FROM user_preferences WHERE user_id = $1`,
+    [userId]
+  );
+  if (!rows.length) {
+    return { inappMoneyEvents: true, emailMoneyEvents: false, emailMarketing: false, theme: "system" };
+  }
+  return mapPreferences(rows[0]);
+}
+
+// Patch keys are pre-validated by the controller (booleans / theme enum).
+// Email opt-ins additionally require a verified address (checked there).
+async function updatePreferences(userId, patch) {
+  await getPool().query(
+    `INSERT INTO user_preferences (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+    [userId]
+  );
+  const columns = {
+    inappMoneyEvents: "inapp_money_events",
+    emailMoneyEvents: "email_money_events",
+    emailMarketing: "email_marketing",
+    theme: "theme",
+  };
+  const sets = [];
+  const params = [userId];
+  for (const [jsKey, column] of Object.entries(columns)) {
+    if (patch[jsKey] !== undefined) {
+      params.push(patch[jsKey]);
+      sets.push(`${column} = $${params.length}`);
+    }
+  }
+  if (!sets.length) {
+    return getPreferences(userId);
+  }
+  const { rows } = await getPool().query(
+    `UPDATE user_preferences SET ${sets.join(", ")}, updated_at = now()
+     WHERE user_id = $1
+     RETURNING inapp_money_events, email_money_events, email_marketing, theme`,
+    params
+  );
+  return mapPreferences(rows[0]);
+}
+
+// Post-commit email fan-out for money events. Opt-in (email_money_events)
+// plus a verified address are required per recipient; with no mail provider
+// configured the seam resolves without sending. Never throws, so a committed
+// money movement is never failed by email.
+async function maybeNotifyMoneyEvents(events) {
+  const outcome = { attempted: 0, sent: 0, provider: "none" };
+  try {
+    for (const event of events || []) {
+      const { rows } = await getPool().query(
+        `SELECT u.email, u.email_verified, p.email_money_events
+         FROM users u LEFT JOIN user_preferences p ON p.user_id = u.id
+         WHERE u.id = $1`,
+        [event.userId]
+      );
+      const row = rows[0];
+      if (!row || !row.email || row.email_verified !== true || row.email_money_events !== true) {
+        continue;
+      }
+      outcome.attempted += 1;
+      const result = await maybeSendEmail({
+        to: row.email,
+        subject: `Nairova: ${event.subject}`,
+        text: `${event.body} Ref ${event.reference}.`,
+      });
+      outcome.provider = result.provider || outcome.provider;
+      if (result.sent) outcome.sent += 1;
+    }
+  } catch (_) {
+    // Email must never fail a committed money movement.
+  }
+  return outcome;
 }
 
 async function listUsers() {
