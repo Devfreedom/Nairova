@@ -38,7 +38,9 @@ export default function Transfer() {
     if (busy) return;
     setError("");
     setSuccess("");
-    const amt = Number(amount);
+    // Strip grouping separators so comma-formatted values like 100,000 parse
+    // correctly; the numeric API contract is unchanged.
+    const amt = Number(String(amount).replace(/[,\s]/g, ""));
     if (!Number.isFinite(amt) || amt <= 0) {
       setError("Enter an amount greater than zero.");
       return;
@@ -64,11 +66,11 @@ export default function Transfer() {
     <div className="mx-auto max-w-lg">
       <header>
         <p className="eyebrow">Send money</p>
-        <h1 className="t-text mt-1 text-2xl font-bold tracking-tight">Transfer simulated funds</h1>
-        <p className="t-muted mt-0.5 text-sm">Verify the recipient, enter an amount, and confirm with your PIN.</p>
+        <h1 className="t-text mt-1 text-2xl font-bold tracking-tight">Transfer</h1>
+        <p className="t-muted mt-0.5 text-sm">Send to another Nairova account. Verify the recipient before confirming.</p>
       </header>
 
-      <form onSubmit={onSubmit} className="mt-5 space-y-4">
+      <form onSubmit={onSubmit} autoComplete="off" className="mt-5 space-y-4">
         <Alert>{error}</Alert>
         <Alert kind="success">{success}</Alert>
 
@@ -77,14 +79,18 @@ export default function Transfer() {
             <span aria-hidden="true" className={`step-num ${verified ? "done" : ""}`}>1</span>
             <h2 id="step-recipient" className="t-text text-base font-bold">Recipient</h2>
           </div>
-          <label className="mt-3 block">
+          <label className="mt-3 block" htmlFor="transfer-recipient">
             <span className="label">Recipient account number</span>
-            <span className="flex gap-2">
+            <span className="flex flex-col gap-2 min-[480px]:flex-row">
               <input
-                className="field font-mono tracking-wider"
+                id="transfer-recipient"
+                name="transferRecipientAccount"
+                type="text"
+                autoComplete="off"
+                className="field min-w-0 flex-1 font-mono tracking-wider"
                 inputMode="numeric"
                 maxLength={10}
-                placeholder="10-digit account number"
+                placeholder="Enter 10-digit account number"
                 value={accountNumber}
                 onChange={(e) => { setAccountNumber(e.target.value.replace(/\D/g, "")); setVerified(null); }}
                 required
@@ -113,28 +119,35 @@ export default function Transfer() {
         <section aria-labelledby="step-payment" className="card">
           <div className="flex items-center gap-2.5">
             <span aria-hidden="true" className="step-num">2</span>
-            <h2 id="step-payment" className="t-text text-base font-bold">Amount &amp; PIN</h2>
+            <h2 id="step-payment" className="t-text text-base font-bold">Transfer details</h2>
           </div>
-          <fieldset className="mt-3 space-y-3">
-            <label className="block">
-              <span className="label">Amount (₦, simulated)</span>
+          <fieldset className="mt-4 space-y-4">
+            <label className="block" htmlFor="transfer-amount">
+              <span className="label">Amount (₦)</span>
               <input
+                id="transfer-amount"
+                name="transferAmount"
+                type="text"
+                autoComplete="off"
                 className="field text-base font-semibold"
                 inputMode="decimal"
-                placeholder="e.g. 100,000"
+                placeholder="Enter amount"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
               />
             </label>
-            <label className="block">
+            <label className="block" htmlFor="transfer-pin">
               <span className="label">Transaction PIN</span>
               <input
+                id="transfer-pin"
+                name="transferPin"
                 className="field"
                 type="password"
+                autoComplete="new-password"
                 inputMode="numeric"
                 maxLength={4}
-                placeholder="4-digit PIN"
+                placeholder="Enter your 4-digit PIN"
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                 required
