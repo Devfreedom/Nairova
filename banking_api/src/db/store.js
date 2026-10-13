@@ -4,6 +4,7 @@
 const crypto = require("crypto");
 const AppError = require("../utils/AppError");
 const { getPool } = require("./pool");
+const { generateReference, fingerprintEqual } = require("../utils/ledger");
 
 const DUPLICATE_EMAIL_MESSAGE = "Email is already registered";
 const DUPLICATE_PHONE_MESSAGE = "Phone number is already registered";
@@ -30,12 +31,15 @@ function mapUserAccount(r) {
 function mapTxn(r) {
   const txn = {
     id: r.id,
+    reference: r.reference || null,
     type: r.type,
     senderId: r.sender_user_id,
     senderAccountNumber: r.sender_account_number,
     receiverId: r.receiver_user_id,
     receiverAccountNumber: r.receiver_account_number,
     amount: toNum(r.amount),
+    fee: r.fee === undefined || r.fee === null ? 0 : toNum(r.fee),
+    narration: r.narration || null,
     status: r.status,
     timestamp: r.created_at,
   };
@@ -44,7 +48,7 @@ function mapTxn(r) {
 }
 
 const TXN_SELECT = `
-  SELECT t.id, t.type, t.amount, t.status, t.created_at,
+  SELECT t.id, t.reference, t.type, t.amount, t.fee, t.narration, t.status, t.created_at,
          s_usr.id AS sender_user_id, s_acct.account_number AS sender_account_number,
          r_usr.id AS receiver_user_id, r_acct.account_number AS receiver_account_number,
          a_usr.email AS admin_email
@@ -62,6 +66,89 @@ function generateAccountNumber() {
 
 function isUniqueViolation(err, constraint) {
   return err && err.code === "23505" && (!constraint || String(err.constraint) === constraint);
+}
+
+// Claims an idempotency key inside the caller's open transaction. The INSERT
+// runs first so concurrent duplicates serialize on the primary key: exactly
+// one request wins and executes, the others wait on SELECT ... FOR UPDATE
+// and then receive the winner's stored outcome without moving money.
+// Returns { fresh:true } for the winner, { replay } for a legitimate retry,
+// or { conflict } when the key is owned by another user or bound to a
+// different payload. Validation failures never reach this point, so a key
+// is only ever consumed by an actually-executed operation.
+async function claimIdempotencyKey(client, { key, userId, endpoint, fingerprint }) {
+  const inserted = await client.query(
+    `INSERT INTO idempotency_keys (key, user_id, endpoint, fingerprint)
+     VALUES ($1, $2, $3, $4) ON CONFLICT (key) DO NOTHING RETURNING key`,
+    [key, userId, endpoint, fingerprint]
+  );
+  if (inserted.rowCount) {
+    return { fresh: true };
+  }
+  const { rows } = await client.query(
+    `SELECT user_id, endpoint, fingerprint, status, response_code, response_body
+     FROM idempotency_keys WHERE key = $1 FOR UPDATE`,
+    [key]
+  );
+  // Defensive: if the losing insert saw a conflict but the row is gone, the
+  // winner rolled back, so the key is free. Retrying the insert once resolves
+  // it; anything else is a genuine anomaly and must not move money.
+  if (!rows.length) {
+    const retry = await client.query(
+      `INSERT INTO idempotency_keys (key, user_id, endpoint, fingerprint)
+       VALUES ($1, $2, $3, $4) ON CONFLICT (key) DO NOTHING RETURNING key`,
+      [key, userId, endpoint, fingerprint]
+    );
+    if (retry.rowCount) {
+      return { fresh: true };
+    }
+    return { conflict: { message: "Idempotency key is already in use. Retry with a new key.", status: 409 } };
+  }
+  const row = rows[0];
+  if (row.user_id !== userId) {
+    return { conflict: { message: "Idempotency key is already in use. Retry with a new key.", status: 409 } };
+  }
+  if (row.endpoint !== endpoint || !fingerprintEqual(row.fingerprint, fingerprint)) {
+    return {
+      conflict: {
+        message: "Idempotency key was already used with different transaction details. Use a new key for a new operation.",
+        status: 409,
+      },
+    };
+  }
+  if (row.status === "completed" && row.response_body) {
+    return { replay: true, code: row.response_code || 200, body: row.response_body };
+  }
+  // A claimed-but-never-completed row cannot exist after its transaction
+  // closes (claim and completion share one transaction), so reaching here
+  // means an anomaly. Refuse rather than risk a second execution.
+  return { conflict: { message: "Idempotency key is already in use. Retry with a new key.", status: 409 } };
+}
+
+async function completeIdempotencyKey(client, { key, code, body }) {
+  await client.query(
+    `UPDATE idempotency_keys SET status = 'completed', response_code = $2, response_body = $3 WHERE key = $1`,
+    [key, code, JSON.stringify(body)]
+  );
+}
+
+// Inserts one ledger row with a backend-generated unique reference.
+// Retries with a fresh reference on the (unlikely) random collision.
+async function insertLedgerRow(client, { type, senderId, receiverId, adminId, amountText, narration, feeText }) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      const { rows } = await client.query(
+        `INSERT INTO transactions (type, sender_account_id, receiver_account_id, admin_user_id, amount, fee, narration, reference, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'success')
+         RETURNING id, reference, created_at`,
+        [type, senderId, receiverId, adminId, amountText, feeText, narration, generateReference()]
+      );
+      return rows[0];
+    } catch (err) {
+      if (!isUniqueViolation(err, "transactions_reference_unique")) throw err;
+    }
+  }
+  throw new AppError("Could not record the transaction. Please try again.", 500);
 }
 
 async function findUserByEmail(email, client) {

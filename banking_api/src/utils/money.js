@@ -1,5 +1,9 @@
 const MAX_AMOUNT = 100000000; // 100M naira cap for classroom demo
 const DECIMAL_PLACES = 2;
+// Settled v1 policy for internal Nairova transfers. Deposits and admin
+// credits intentionally keep the wider MAX_AMOUNT cap (no approved limits).
+const TRANSFER_MIN_AMOUNT = 100;
+const TRANSFER_MAX_AMOUNT = 1000000;
 
 function normalizeAmount(raw) {
   let value = raw;
@@ -31,4 +35,4 @@ function normalizeAmount(raw) {
   return { ok: true, value: rounded };
 }
 
-module.exports = { normalizeAmount, MAX_AMOUNT };
+module.exports = { normalizeAmount, MAX_AMOUNT, TRANSFER_MIN_AMOUNT, TRANSFER_MAX_AMOUNT };
