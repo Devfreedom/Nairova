@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { parseAmount } from "../lib/amount";
 import { formatDate, formatNaira } from "../lib/format";
-import { Alert, Empty, PasswordField } from "../components/ui";
+import { Alert, Empty, PasswordField, SectionHeading } from "../components/ui";
+
+function identifierOf(u) {
+  return u?.email || u?.phone || "—";
+}
 
 export default function Admin() {
   const [users, setUsers] = useState([]);
@@ -60,7 +64,7 @@ export default function Admin() {
       const txn = res.data?.transaction;
       setReceipt({
         name: recipient?.name || txn?.receiverName || "Customer",
-        email: recipient?.email || "",
+        identifier: recipient ? identifierOf(recipient) : "",
         accountNumber: txn?.receiverAccountNumber || acct,
         amount: txn?.amount ?? parsed.value,
         newBalance: res.data?.newBalance,
@@ -110,7 +114,7 @@ export default function Admin() {
       // Success is claimed only after the backend confirms the reset.
       const res = await api.adminResetPassword(resetTarget.id, newPassword, confirmPassword);
       setResetSuccess(
-        `Password reset for ${res.data?.name || resetTarget.name} (${res.data?.email || resetTarget.email}). They can now log in with the new password.`
+        `Password reset for ${res.data?.name || resetTarget.name} (${res.data?.email || res.data?.phone || identifierOf(resetTarget)}). They can now log in with the new password.`
       );
       setNewPassword("");
       setConfirmPassword("");
@@ -124,14 +128,17 @@ export default function Admin() {
   return (
     <div className="space-y-4">
       <div className="card">
-        <h1 className="text-xl font-bold">Admin dashboard</h1>
-        <p className="mt-1 text-sm text-slate-500">Credit customer accounts with <strong>simulated test funds</strong>. Every credit is recorded.</p>
-        <Alert>{error}</Alert>
+        <SectionHeading
+          title="Admin dashboard"
+          hint="Privileged actions — every credit is recorded with the admin identity."
+        />
+        <p className="t-muted mt-1 text-sm">Credit customer accounts with <strong>simulated test funds</strong>.</p>
+        <div className="mt-2"><Alert>{error}</Alert></div>
         {receipt && (
-          <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">
-            Credited <strong>{formatNaira(receipt.amount)}</strong> (simulated) to{" "}
+          <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--ok-bg)] px-3 py-2 text-sm text-[var(--ok)]" role="status">
+            Credited <strong>{formatNaira(receipt.amount)}</strong> (simulated test funds) to{" "}
             <strong>{receipt.name}</strong>
-            {receipt.email ? ` (${receipt.email})` : ""}, acct{" "}
+            {receipt.identifier ? ` (${receipt.identifier})` : ""}, acct{" "}
             <span className="font-mono">{receipt.accountNumber}</span>. New balance:{" "}
             <strong>{receipt.newBalance !== undefined ? formatNaira(receipt.newBalance) : "—"}</strong>.
           </div>
@@ -152,7 +159,7 @@ export default function Admin() {
             />
           </label>
           <label className="block">
-            <span className="label">Amount (₦, simulated)</span>
+            <span className="label">Amount (₦, simulated test funds)</span>
             <input
               className="field"
               inputMode="decimal"
@@ -163,52 +170,52 @@ export default function Admin() {
               required
             />
             {amount.trim() !== "" && preview.ok && (
-              <span className="mt-1 block text-xs text-slate-500">= {formatNaira(preview.value)} will be credited</span>
+              <span className="t-muted mt-1 block text-xs">= {formatNaira(preview.value)} will be credited</span>
             )}
           </label>
           <button className="btn-primary md:self-end" disabled={busy}>{busy ? "Crediting…" : "Credit account"}</button>
         </form>
 
         {/^\d{10}$/.test(accountNumber.trim()) && (
-          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm" aria-live="polite">
+          <div className="t-surface-2 mt-3 rounded-lg px-3 py-2 text-sm" aria-live="polite">
             {selected ? (
-              <p>
-                Recipient: <strong>{selected.name}</strong> ({selected.email}) · acct{" "}
+              <p className="t-text">
+                Recipient: <strong>{selected.name}</strong> ({identifierOf(selected)}) · acct{" "}
                 <span className="font-mono">{selected.accountNumber}</span> · current balance{" "}
                 <strong>{formatNaira(selected.balance)}</strong>
               </p>
             ) : (
-              !loading && <p className="text-amber-800">No customer found with account number {accountNumber.trim()}.</p>
+              !loading && <p className="text-[var(--danger)]">No customer found with account number {accountNumber.trim()}.</p>
             )}
           </div>
         )}
       </div>
 
       <div className="card">
-        <h2 className="font-semibold">Customers {loading ? "" : `(${users.length})`}</h2>
+        <SectionHeading title={`Customers ${loading ? "" : `(${users.length})`}`} hint="Email or phone identifier shown per account." />
         {loading ? (
-          <p className="py-4 text-sm text-slate-500">Loading…</p>
+          <p className="t-muted py-4 text-sm">Loading…</p>
         ) : users.length === 0 ? (
           <div className="mt-2"><Empty title="No customers yet" /></div>
         ) : (
           <div className="mt-2 overflow-x-auto">
             <table className="w-full min-w-[560px] text-left text-sm">
               <thead>
-                <tr className="text-xs uppercase text-slate-500">
+                <tr className="t-muted text-xs uppercase">
                   <th className="py-2 pr-2">Name</th>
-                  <th className="py-2 pr-2">Email</th>
+                  <th className="py-2 pr-2">Email / phone</th>
                   <th className="py-2 pr-2">Account</th>
                   <th className="py-2 pr-2">Balance</th>
                   <th className="py-2">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="t-border divide-y">
                 {users.map((u) => (
                   <tr key={u.id}>
-                    <td className="py-2 pr-2 font-medium">{u.name} <span className="text-xs text-slate-400">({u.role})</span></td>
-                    <td className="py-2 pr-2 text-slate-600">{u.email}</td>
-                    <td className="py-2 pr-2 font-mono text-xs">{u.accountNumber}</td>
-                    <td className="py-2 pr-2 font-semibold">{formatNaira(u.balance)}</td>
+                    <td className="t-text py-2 pr-2 font-medium">{u.name} <span className="t-muted text-xs">({u.role})</span></td>
+                    <td className="t-muted py-2 pr-2">{identifierOf(u)}</td>
+                    <td className="t-text py-2 pr-2 font-mono text-xs">{u.accountNumber}</td>
+                    <td className="t-text py-2 pr-2 font-semibold">{formatNaira(u.balance)}</td>
                     <td className="py-2">
                       <span className="flex flex-wrap gap-1">
                         <button
@@ -238,13 +245,13 @@ export default function Admin() {
       </div>
 
       {resetTarget && (
-        <div className="card border-amber-200" role="dialog" aria-modal="false" aria-labelledby="reset-password-heading">
-          <h2 id="reset-password-heading" className="font-semibold">Reset customer password</h2>
-          <p className="mt-1 text-sm text-slate-600" aria-live="polite">
-            Customer: <strong>{resetTarget.name}</strong> ({resetTarget.email}) · acct{" "}
+        <div className="card" role="dialog" aria-modal="false" aria-labelledby="reset-password-heading">
+          <h2 id="reset-password-heading" className="t-text font-semibold">Reset customer password</h2>
+          <p className="t-muted mt-1 text-sm" aria-live="polite">
+            Customer: <strong>{resetTarget.name}</strong> ({identifierOf(resetTarget)}) · acct{" "}
             <span className="font-mono">{resetTarget.accountNumber}</span>
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="t-muted mt-1 text-xs">
             Only the password changes. Balance, PIN, account number, and history are untouched.
           </p>
           <form onSubmit={onResetPassword} className="mt-3 space-y-3">
@@ -268,7 +275,7 @@ export default function Admin() {
               disabled={resetBusy}
               required
             />
-            <p className="text-xs text-slate-500">Use 6+ characters with upper, lower, number and a symbol.</p>
+            <p className="t-muted text-xs">Use 6+ characters with upper, lower, number and a symbol.</p>
             <div className="flex flex-wrap gap-2">
               <button type="submit" className="btn-primary w-auto px-5" disabled={resetBusy}>
                 {resetBusy ? "Resetting…" : "Reset password"}
@@ -282,21 +289,21 @@ export default function Admin() {
       )}
 
       <div className="card">
-        <h2 className="font-semibold">Recorded activity</h2>
+        <SectionHeading title="Recorded activity" hint="Newest first, with crediting admin where applicable." />
         {txns.length === 0 ? (
           <div className="mt-2"><Empty title="No activity recorded" /></div>
         ) : (
-          <ul className="mt-2 divide-y divide-slate-100">
+          <ul className="t-border mt-2 divide-y">
             {txns.slice(0, 20).map((t) => (
               <li key={t.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                 <div>
-                  <p className="font-medium">{t.type} · {formatNaira(t.amount)}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="t-text font-medium">{t.type} · {formatNaira(t.amount)}</p>
+                  <p className="t-muted text-xs">
                     {t.senderAccountNumber || "—"} → {t.receiverAccountNumber || "—"} · {formatDate(t.timestamp)} · {t.status}
                     {t.adminEmail ? ` · by ${t.adminEmail}` : ""}
                   </p>
                 </div>
-                <span className="text-xs text-slate-400">#{t.id}</span>
+                <span className="t-muted text-xs">#{t.id}</span>
               </li>
             ))}
           </ul>
