@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../lib/api";
 import { formatNaira } from "../lib/format";
-import { Alert } from "../components/ui";
+import { Alert, SectionHeading } from "../components/ui";
 
 export default function Transfer() {
   const [accountNumber, setAccountNumber] = useState("");
@@ -35,6 +35,7 @@ export default function Transfer() {
 
   async function onSubmit(e) {
     e.preventDefault();
+    if (busy) return;
     setError("");
     setSuccess("");
     const amt = Number(amount);
@@ -62,8 +63,7 @@ export default function Transfer() {
   return (
     <div className="mx-auto max-w-lg">
       <div className="card">
-        <h1 className="text-xl font-bold">Transfer simulated funds</h1>
-        <p className="mt-1 text-sm text-slate-500">Verify the recipient before sending.</p>
+        <SectionHeading title="Transfer simulated funds" hint="Verify the recipient before sending." />
         <form onSubmit={onSubmit} className="mt-4 space-y-3">
           <Alert>{error}</Alert>
           <Alert kind="success">{success}</Alert>
@@ -85,16 +85,16 @@ export default function Transfer() {
             </span>
           </label>
           {verified && (
-            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            <p role="status" className="rounded-lg border border-[var(--border)] bg-[var(--ok-bg)] px-3 py-2 text-sm text-[var(--ok)]">
               Recipient: <strong>{verified.name}</strong> ({verified.accountNumber})
             </p>
           )}
           <label className="block">
-            <span className="label">Amount (₦)</span>
+            <span className="label">Amount (₦, simulated)</span>
             <input
               className="field"
               inputMode="decimal"
-              placeholder="e.g. 1000"
+              placeholder="e.g. 100,000"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required
