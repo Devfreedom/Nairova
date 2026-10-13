@@ -111,6 +111,9 @@ export const api = {
   verifyAccount: (accountNumber) =>
     request(`/api/account/verify/${encodeURIComponent(accountNumber)}`, { method: "POST" }),
   transfer: (payload, signal) => request("/api/transfer", { method: "POST", body: payload, signal }),
+  topupCatalogue: () => request("/api/topup/catalogue"),
+  topupAirtime: (payload, signal) => request("/api/topup/airtime", { method: "POST", body: payload, signal }),
+  topupData: (payload, signal) => request("/api/topup/data", { method: "POST", body: payload, signal }),
   transactions: () => request("/api/account/transactions"),
   adminUsers: () => request("/api/admin/users"),
   adminCredit: (accountNumber, amount, extra = {}) =>
