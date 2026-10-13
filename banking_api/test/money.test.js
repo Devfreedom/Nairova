@@ -21,10 +21,10 @@ describe("money movement", () => {
     base = baseUrl(server);
 
     await api(base, "POST", "/api/auth/register", {
-      body: { name: "Alice Money", email: "alice.money@example.com", password: "Alice123!" },
+      body: { name: "Alice Money", email: "alice.money@example.com", password: "Alice123!", pin: "1234", pinConfirm: "1234" },
     });
     await api(base, "POST", "/api/auth/register", {
-      body: { name: "Bob Money", email: "bob.money@example.com", password: "Bob12345!" },
+      body: { name: "Bob Money", email: "bob.money@example.com", password: "Bob12345!", pin: "5678", pinConfirm: "5678" },
     });
 
     adminToken = (await login(base, "test.admin@example.com", "Admin123!")).data.token;

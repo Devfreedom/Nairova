@@ -39,7 +39,7 @@ describe("email-or-phone authentication", () => {
 
   it("existing email accounts keep working (legacy contract)", async () => {
     const reg = await api(base, "POST", "/api/auth/register", {
-      body: { name: "Email User", email: "email.user@example.com", password: "Email123!" },
+      body: { name: "Email User", email: "email.user@example.com", password: "Email123!", pin: "1357", pinConfirm: "1357" },
     });
     assert.equal(reg.status, 201);
     assert.equal(reg.data.data.email, "email.user@example.com");
@@ -57,7 +57,7 @@ describe("email-or-phone authentication", () => {
 
   it("registers and logs in with a Nigerian phone number", async () => {
     const reg = await api(base, "POST", "/api/auth/register", {
-      body: { name: "Phone User", identifier: "08012345678", password: "Phone123!" },
+      body: { name: "Phone User", identifier: "08012345678", password: "Phone123!", pin: "2468", pinConfirm: "2468" },
     });
     assert.equal(reg.status, 201);
     assert.equal(reg.data.data.phone, "+2348012345678");
@@ -79,14 +79,14 @@ describe("email-or-phone authentication", () => {
 
   it("rejects duplicate phone numbers gracefully", async () => {
     const again = await api(base, "POST", "/api/auth/register", {
-      body: { name: "Phone Clone", identifier: "+2348012345678", password: "Phone123!" },
+      body: { name: "Phone Clone", identifier: "+2348012345678", password: "Phone123!", pin: "2468", pinConfirm: "2468" },
     });
     assert.equal(again.status, 409);
   });
 
   it("rejects malformed identifiers and wrong passwords", async () => {
     const badReg = await api(base, "POST", "/api/auth/register", {
-      body: { name: "Bad", identifier: "12345", password: "Bad123!!" },
+      body: { name: "Bad", identifier: "12345", password: "Bad123!!", pin: "0000", pinConfirm: "0000" },
     });
     assert.equal(badReg.status, 400);
 
@@ -98,7 +98,7 @@ describe("email-or-phone authentication", () => {
 
   it("public phone registration cannot create an admin", async () => {
     const reg = await api(base, "POST", "/api/auth/register", {
-      body: { name: "Sneaky", identifier: "08099998888", password: "Sneaky123!", role: "admin" },
+      body: { name: "Sneaky", identifier: "08099998888", password: "Sneaky123!", role: "admin", pin: "1122", pinConfirm: "1122" },
     });
     assert.equal(reg.status, 201);
     assert.equal(reg.data.data.role, "user");

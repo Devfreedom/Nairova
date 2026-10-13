@@ -25,12 +25,14 @@ describe("auth persistence", () => {
 
   it("registration persists a user and account", async () => {
     const reg = await api(base, "POST", "/api/auth/register", {
-      body: { name: "Alice Test", email: "alice.test@example.com", password: "Alice123!" },
+      body: { name: "Alice Test", email: "alice.test@example.com", password: "Alice123!", pin: "1234", pinConfirm: "1234" },
     });
     assert.equal(reg.status, 201);
     assert.equal(reg.data.data.role, "user");
     assert.match(reg.data.data.accountNumber, /^\d{10}$/);
     assert.equal(reg.data.data.balance, 0);
+    assert.equal(reg.data.data.pinSet, true);
+    assert.ok(!("pin" in reg.data.data) && !("pinHash" in reg.data.data));
 
     const me = await api(base, "GET", "/api/auth/me", {
       token: (await login(base, "alice.test@example.com", "Alice123!")).data.token,
@@ -43,14 +45,14 @@ describe("auth persistence", () => {
 
   it("duplicate email registration is rejected", async () => {
     const again = await api(base, "POST", "/api/auth/register", {
-      body: { name: "Alice Clone", email: "alice.test@example.com", password: "Alice123!" },
+      body: { name: "Alice Clone", email: "alice.test@example.com", password: "Alice123!", pin: "1234", pinConfirm: "1234" },
     });
     assert.equal(again.status, 409);
   });
 
   it("public registration cannot create an admin", async () => {
     const reg = await api(base, "POST", "/api/auth/register", {
-      body: { name: "Mallory", email: "mallory@example.com", password: "Mallory1!", role: "admin" },
+      body: { name: "Mallory", email: "mallory@example.com", password: "Mallory1!", role: "admin", pin: "9999", pinConfirm: "9999" },
     });
     assert.equal(reg.status, 201);
     assert.equal(reg.data.data.role, "user");
