@@ -104,6 +104,16 @@ export const api = {
   adminResetPassword: (userId, newPassword, confirmPassword) =>
     request("/api/admin/reset-password", { method: "POST", body: { userId, newPassword, confirmPassword } }),
   adminTransactions: () => request("/api/admin/transactions"),
+  profile: (payload) => request("/api/account/profile", { method: "PATCH", body: payload }),
+  requestEmailVerification: () =>
+    request("/api/account/email/request", { method: "POST" }),
+  verifyEmail: (token) =>
+    request("/api/account/email/verify", { method: "POST", body: { token } }),
+  getPreferences: () => request("/api/account/preferences"),
+  updatePreferences: (payload) =>
+    request("/api/account/preferences", { method: "PATCH", body: payload }),
+  changePassword: (currentPassword, newPassword) =>
+    request("/api/account/password", { method: "PUT", body: { currentPassword, newPassword } }),
   notifications: ({ cursor, limit } = {}) => {
     const params = new URLSearchParams();
     if (cursor !== undefined && cursor !== null) params.set("cursor", String(cursor));
