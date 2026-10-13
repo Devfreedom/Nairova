@@ -98,3 +98,63 @@ Manual persistence check: register a user, credit the account, restart the backe
 process, then log in again — the balance and history must be unchanged.
 
 Frontend checks: `npm run lint` and `npm run build` from `frontend/`.
+
+## Deployment runbook (Vercel + Render + Render Postgres)
+
+No live deployment is performed automatically; the steps below are manual dashboard
+actions. Never put real credentials in tracked files — set them as dashboard
+environment variables.
+
+### 1. Database — Render Postgres
+
+- Create a **Postgres** instance in the same region you plan for the web service.
+- Copy the **Internal Database URL** (used by the Render web service).
+- Migrations are applied explicitly, never during build:
+  1. Deploy the backend code first (it will stay unhealthy until migrated — expected).
+  2. Open the web service's **Shell** tab and run, from the `banking_api/` directory:
+     ```bash
+     npm run db:migrate
+     npm run db:status
+     ```
+  3. Only `db:status` showing zero pending is acceptable before sending traffic.
+- The migration runner is advisory-locked and rerunnable; it never drops data.
+
+### 2. Backend — Render Web Service
+
+- **Root Directory:** `banking_api`
+- **Build Command:** `npm install`
+- **Start Command:** `npm start`
+- **Health Check Path:** `/health` (checks PostgreSQL reachability; 200 healthy, 503 on outage)
+- Environment variables:
+  | Variable | Value |
+  |---|---|
+  | `JWT_SECRET` | A newly generated long random secret (must differ from dev) |
+  | `JWT_EXPIRES_IN` | `1h` |
+  | `FRONTEND_ORIGIN` | `https://<your-app>.vercel.app` (exact Vercel URL, no trailing slash) |
+  | `DATABASE_URL` | The Render **Internal Database URL** |
+  | `PGSSL` | `true` (Render Postgres requires SSL) |
+  | `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Demo-admin bootstrap (created idempotently on boot) |
+  (`PORT` is injected by Render; the server listens on `0.0.0.0`.)
+- The server refuses to boot on missing `DATABASE_URL`, unreachable DB, or pending
+  migrations, and shuts down gracefully (SIGTERM drains connections). No demo
+  balances are seeded into production.
+
+### 3. Frontend — Vercel
+
+- New project from this repo, **Root Directory:** `frontend/`.
+- `frontend/vercel.json` already rewrites all routes to `/index.html`, so direct
+  navigation to `/login`, `/register`, `/transfer`, `/history`, and `/admin` works.
+- Environment variable: `VITE_API_BASE_URL=https://<render-service>.onrender.com`
+  (baked in at build time; localhost is only the local-dev fallback).
+- After the Vercel URL is known, update the backend `FRONTEND_ORIGIN` to match and
+  redeploy the backend; unknown origins remain rejected by CORS.
+
+### 4. Post-deploy acceptance
+
+1. Frontend loads over HTTPS; direct routes resolve (no 404s).
+2. `GET /health` returns 200 with the database up, 503 on DB outage.
+3. Register + login a new customer; ordinary signup cannot become admin.
+4. Admin credit updates the balance with a ledger record.
+5. Transfer between two accounts; restart/redeploy keeps balances and history.
+6. Non-admin admin-API calls return 403; bad amounts/PINs/self-transfers rejected.
+7. CORS allows only the configured Vercel origin.
