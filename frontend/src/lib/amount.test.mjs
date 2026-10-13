@@ -2,7 +2,7 @@
 // run with `npm run test:parser` (node --test).
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseAmount } from "./amount.js";
+import { parseAmount, parseTransferAmount } from "./amount.js";
 
 describe("parseAmount", () => {
   it("accepts plain integers", () => {
@@ -52,5 +52,30 @@ describe("parseAmount", () => {
 
   it("accepts numeric input within limits", () => {
     assert.deepEqual(parseAmount(100000), { ok: true, value: 100000 });
+  });
+});
+
+describe("parseTransferAmount", () => {
+  it("accepts the exact minimum and maximum boundaries", () => {
+    assert.deepEqual(parseTransferAmount("100"), { ok: true, value: 100 });
+    assert.deepEqual(parseTransferAmount("1,000,000"), { ok: true, value: 1000000 });
+  });
+
+  it("rejects amounts below ₦100", () => {
+    for (const bad of ["1", "99", "99.99"]) {
+      assert.equal(parseTransferAmount(bad).ok, false, `${bad} should be rejected`);
+    }
+  });
+
+  it("rejects amounts above ₦1,000,000", () => {
+    for (const bad of ["1,000,000.01", "1000001", "5000000"]) {
+      assert.equal(parseTransferAmount(bad).ok, false, `${bad} should be rejected`);
+    }
+  });
+
+  it("still rejects malformed input", () => {
+    for (const bad of ["", "abc", "10.999", "-5", "0"]) {
+      assert.equal(parseTransferAmount(bad).ok, false, `${JSON.stringify(bad)} should be rejected`);
+    }
   });
 });

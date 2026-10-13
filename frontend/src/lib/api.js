@@ -99,8 +99,8 @@ export const api = {
   transfer: (payload) => request("/api/transfer", { method: "POST", body: payload }),
   transactions: () => request("/api/account/transactions"),
   adminUsers: () => request("/api/admin/users"),
-  adminCredit: (accountNumber, amount) =>
-    request("/api/admin/credit", { method: "POST", body: { accountNumber, amount } }),
+  adminCredit: (accountNumber, amount, extra = {}) =>
+    request("/api/admin/credit", { method: "POST", body: { accountNumber, amount, ...extra } }),
   adminResetPassword: (userId, newPassword, confirmPassword) =>
     request("/api/admin/reset-password", { method: "POST", body: { userId, newPassword, confirmPassword } }),
   adminTransactions: () => request("/api/admin/transactions"),

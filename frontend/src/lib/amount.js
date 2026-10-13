@@ -9,6 +9,11 @@
 export const MAX_AMOUNT = 100000000; // matches backend cap
 export const MAX_DECIMALS = 2;
 
+// Settled v1 policy for internal Nairova transfers (matches backend).
+// Admin credits and deposits intentionally keep the wider MAX_AMOUNT cap.
+export const TRANSFER_MIN_AMOUNT = 100;
+export const TRANSFER_MAX_AMOUNT = 1000000;
+
 const PLAIN = /^\d+(\.\d+)?$/;
 const GROUPED = /^\d{1,3}(,\d{3})+(\.\d+)?$/;
 
@@ -64,4 +69,18 @@ export function parseAmount(raw) {
   }
 
   return checkRange(Number(digits));
+}
+
+// Transfer-specific validation: parsing plus the settled ₦100–₦1,000,000
+// per-transfer bounds. The backend re-enforces these authoritatively.
+export function parseTransferAmount(raw) {
+  const parsed = parseAmount(raw);
+  if (!parsed.ok) return parsed;
+  if (parsed.value < TRANSFER_MIN_AMOUNT) {
+    return { ok: false, error: "Minimum transfer is ₦100." };
+  }
+  if (parsed.value > TRANSFER_MAX_AMOUNT) {
+    return { ok: false, error: "Maximum transfer is ₦1,000,000 per transfer." };
+  }
+  return parsed;
 }
