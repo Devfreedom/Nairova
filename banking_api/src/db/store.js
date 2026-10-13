@@ -160,7 +160,7 @@ async function registerUser({ name, email, phone, passwordHash }) {
       throw new AppError("Could not allocate an account number. Please try again.", 500);
     }
     await client.query("COMMIT");
-    return { id: userId, name, email, role: "user", balance: 0, pin: null, accountNumber };
+    return { id: userId, name, email: email || null, phone: phone || null, role: "user", balance: 0, pin: null, accountNumber };
   } catch (err) {
     try {
       await client.query("ROLLBACK");
