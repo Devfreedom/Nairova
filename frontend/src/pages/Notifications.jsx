@@ -143,7 +143,7 @@ export default function Notifications() {
               type="button"
               onClick={handleMarkAll}
               disabled={marking || unread === 0}
-              className="btn-secondary !w-auto !px-3 !py-1.5 text-xs"
+              className="btn-secondary !px-3 !py-1.5 text-xs"
             >
               {marking ? "…" : "Mark all as read"}
             </button>
