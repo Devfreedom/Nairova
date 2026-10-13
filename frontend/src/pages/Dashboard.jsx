@@ -56,11 +56,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showBalance, setShowBalance] = useState(true);
   const [copyMsg, setCopyMsg] = useState("");
-  const [pin, setPin] = useState("");
-  const [oldPin, setOldPin] = useState("");
-  const [newPin, setNewPin] = useState("");
-  const [pinMsg, setPinMsg] = useState({ kind: "", text: "" });
-  const [pinBusy, setPinBusy] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -92,45 +87,6 @@ export default function Dashboard() {
       setCopyMsg("Account number copied");
     } catch {
       setCopyMsg("Copy failed — long-press to copy manually.");
-    }
-  }
-
-  async function handleCreatePin(e) {
-    e.preventDefault();
-    setPinMsg({ kind: "", text: "" });
-    if (!/^\d{4}$/.test(pin)) {
-      setPinMsg({ kind: "error", text: "PIN must be exactly 4 digits." });
-      return;
-    }
-    setPinBusy(true);
-    try {
-      await api.createPin(pin);
-      setPinMsg({ kind: "success", text: "Transaction PIN created." });
-      setPin("");
-    } catch (err) {
-      setPinMsg({ kind: "error", text: err.message });
-    } finally {
-      setPinBusy(false);
-    }
-  }
-
-  async function handleUpdatePin(e) {
-    e.preventDefault();
-    setPinMsg({ kind: "", text: "" });
-    if (!/^\d{4}$/.test(newPin)) {
-      setPinMsg({ kind: "error", text: "New PIN must be exactly 4 digits." });
-      return;
-    }
-    setPinBusy(true);
-    try {
-      await api.updatePin(oldPin, newPin);
-      setPinMsg({ kind: "success", text: "Transaction PIN updated." });
-      setOldPin("");
-      setNewPin("");
-    } catch (err) {
-      setPinMsg({ kind: "error", text: err.message });
-    } finally {
-      setPinBusy(false);
     }
   }
 
@@ -233,30 +189,8 @@ export default function Dashboard() {
         <div className="card card-muted lg:col-span-2">
           <p className="eyebrow">Security</p>
           <h2 className="t-text mt-1 text-base font-bold">Transaction PIN</h2>
-          <p className="t-muted mt-0.5 text-[13px]">A 4-digit PIN is required before transfers.</p>
-          <div className="mt-2"><Alert kind={pinMsg.kind}>{pinMsg.text}</Alert></div>
-          <form onSubmit={handleCreatePin} className="mt-3 space-y-2">
-            <label className="block">
-              <span className="label">Create PIN</span>
-              <span className="flex gap-2">
-                <input className="field" inputMode="numeric" maxLength={4} placeholder="1234" value={pin} onChange={(e) => setPin(e.target.value)} aria-label="Create transaction PIN" />
-                <button className="btn-secondary shrink-0" disabled={pinBusy}>Save</button>
-              </span>
-            </label>
-          </form>
-          <form onSubmit={handleUpdatePin} className="t-border mt-3 space-y-2 border-t pt-3">
-            <div className="grid grid-cols-2 gap-2">
-              <label className="block">
-                <span className="label">Old PIN</span>
-                <input className="field" inputMode="numeric" maxLength={4} value={oldPin} onChange={(e) => setOldPin(e.target.value)} aria-label="Old transaction PIN" />
-              </label>
-              <label className="block">
-                <span className="label">New PIN</span>
-                <input className="field" inputMode="numeric" maxLength={4} value={newPin} onChange={(e) => setNewPin(e.target.value)} aria-label="New transaction PIN" />
-              </label>
-            </div>
-            <button className="btn-secondary w-full" disabled={pinBusy}>Update PIN</button>
-          </form>
+          <p className="t-muted mt-0.5 text-[13px]">A 4-digit PIN is required before transfers. Manage it in Settings.</p>
+          <Link to="/settings" className="btn-secondary mt-3 w-full">Open security settings</Link>
         </div>
       </div>
     </div>
