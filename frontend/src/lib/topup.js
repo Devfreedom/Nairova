@@ -101,12 +101,14 @@ export function clearTopupPending(storage = defaultStorage()) {
   }
 }
 
-// Display-only masking of a phone number: 08012345678 -> 080 **** *678.
-// Never used for charging or lookup.
+// Display-only masking of a phone number: 08012345678 -> 801 **** *678.
+// Masks on the national significant digits so local and E.164 spellings of
+// the same number mask identically. Never used for charging or lookup.
 export function maskMsisdn(msisdn) {
   const digits = String(msisdn || "").replace(/\D/g, "");
-  if (digits.length < 7) return String(msisdn || "");
-  return `${digits.slice(0, 3)} **** *${digits.slice(-3)}`;
+  const national = digits.length > 10 ? digits.slice(-10) : digits;
+  if (national.length < 7) return String(msisdn || "");
+  return `${national.slice(0, 3)} **** *${national.slice(-3)}`;
 }
 
 // Plain-text receipt built exclusively from backend-confirmed values.

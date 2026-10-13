@@ -78,9 +78,9 @@ describe("topup pending intents", () => {
 
   it("never persists secrets", () => {
     const s = memStorage();
-    saveTopupPending({ ...AIRTIME_INTENT, pin: "1234", password: "x", token: "y" }, s);
+    saveTopupPending({ ...AIRTIME_INTENT, pin: "9999", password: "x", token: "y" }, s);
     const raw = s.getItem(TOPUP_PENDING_KEY);
-    assert.ok(!raw.includes("1234"));
+    assert.ok(!raw.includes("9999"));
     assert.ok(!raw.includes("password"));
     assert.ok(!raw.includes("token"));
     const loaded = loadTopupPending(s);
