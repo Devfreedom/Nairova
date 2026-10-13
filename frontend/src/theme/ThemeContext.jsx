@@ -1,41 +1,61 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 const STORAGE_KEY = "nairova-theme";
-const ThemeContext = createContext({ theme: "light", setTheme: () => {}, toggle: () => {} });
+export const THEME_OPTIONS = ["light", "dark", "system"];
 
-function initialTheme() {
+const ThemeContext = createContext({ theme: "light", choice: "system", setTheme: () => {}, toggle: () => {} });
+
+function readSavedChoice() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === "light" || saved === "dark") return saved;
+    if (THEME_OPTIONS.includes(saved)) return saved;
   } catch {
-    // storage unavailable; fall through to system preference
+    // storage unavailable; fall through to system
   }
+  return "system";
+}
+
+function systemPrefersDark() {
   if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
-    return "dark";
+    return true;
   }
-  return "light";
+  return false;
 }
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(initialTheme);
+  // choice is the persisted preference; theme is the effective value.
+  const [choice, setChoiceState] = useState(readSavedChoice);
+  const [osDark, setOsDark] = useState(systemPrefersDark);
+
+  useEffect(() => {
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!mq?.addEventListener) return undefined;
+    async function onChange(e) {
+      setOsDark(e.matches);
+    }
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  const theme = choice === "system" ? (osDark ? "dark" : "light") : choice;
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     try {
-      localStorage.setItem(STORAGE_KEY, theme);
+      localStorage.setItem(STORAGE_KEY, choice);
     } catch {
       // non-fatal; theme still applies for this session
     }
-  }, [theme]);
+  }, [theme, choice]);
 
   const setTheme = useCallback((t) => {
-    if (t === "light" || t === "dark") setThemeState(t);
+    if (THEME_OPTIONS.includes(t)) setChoiceState(t);
   }, []);
   const toggle = useCallback(() => {
-    setThemeState((t) => (t === "dark" ? "light" : "dark"));
+    setChoiceState((c) => (c === "dark" ? "light" : "dark"));
   }, []);
 
-  const value = useMemo(() => ({ theme, setTheme, toggle }), [theme, setTheme, toggle]);
+  const value = useMemo(() => ({ theme, choice, setTheme, toggle }), [theme, choice, setTheme, toggle]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 

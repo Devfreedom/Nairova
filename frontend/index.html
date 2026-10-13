@@ -7,11 +7,13 @@
     <meta name="description" content="Nairova — a simulated banking demo. Not a real bank." />
     <title>Nairova</title>
     <script>
-      // Apply the saved theme (or system preference) before first paint to
+      // Apply the saved theme (light, dark, or system) before first paint to
       // avoid a flash of the wrong theme. Only the theme choice is persisted.
       try {
         var saved = localStorage.getItem("nairova-theme");
-        var theme = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        var theme = (saved === "light" || saved === "dark")
+          ? saved
+          : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
         if (theme === "dark") document.documentElement.classList.add("dark");
       } catch (e) {}
     </script>
