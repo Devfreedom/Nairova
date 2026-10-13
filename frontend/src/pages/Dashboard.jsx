@@ -160,13 +160,12 @@ export default function Dashboard() {
             </div>
             {copyMsg && <p role="status" className="mt-1 text-xs font-medium">{copyMsg}</p>}
             <div className="mt-4 flex flex-wrap gap-2">
-              <Link to="/transfer" className="btn-brand-soft !bg-white dark:!bg-voltaic" style={{ background: "#fff", color: "#10382F" }}>
+              <Link to="/transfer" className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-forest dark:bg-voltaic dark:text-midnight">
                 Send money
               </Link>
               <Link
                 to="/history"
-                className="rounded-lg border px-4 py-2 text-sm font-semibold"
-                style={{ borderColor: "currentColor", opacity: 0.95 }}
+                className="rounded-lg border border-white/50 px-4 py-2 text-sm font-semibold dark:border-[#526B8C]"
               >
                 View history
               </Link>
