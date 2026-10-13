@@ -495,11 +495,27 @@ async function adminCredit({ adminId, accountNumber, amountText, narration, idem
 // Atomic transfer. Rows are locked in ascending account-id order to avoid deadlocks;
 // the sender debit is conditional on sufficient funds so concurrent transfers
 // cannot overdraw the account. Rolls back everything on any failure.
-async function transferFunds({ senderUserId, receiverAccountNumber, amountText }) {
+// With an idempotency key, the key claim runs first inside the same
+// transaction: replays return the stored outcome, mismatched payloads get a
+// 409, and concurrent duplicates serialize on the key row.
+async function transferFunds({ senderUserId, receiverAccountNumber, amountText, narration, idempotencyKey, fingerprint, displayAmount }) {
   const pool = getPool();
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    if (idempotencyKey) {
+      const claim = await claimIdempotencyKey(client, {
+        key: idempotencyKey, userId: senderUserId, endpoint: "POST /api/transfer", fingerprint,
+      });
+      if (claim.replay) {
+        await client.query("ROLLBACK");
+        return { replay: true, code: claim.code, body: claim.body };
+      }
+      if (claim.conflict) {
+        await client.query("ROLLBACK");
+        return { error: claim.conflict };
+      }
+    }
     const senderRes = await client.query(
       `SELECT a.id, a.account_number, a.balance, u.name FROM accounts a
        JOIN users u ON u.id = a.user_id WHERE a.user_id = $1`,
@@ -544,16 +560,31 @@ async function transferFunds({ senderUserId, receiverAccountNumber, amountText }
       `UPDATE accounts SET balance = balance + $1 WHERE id = $2 RETURNING balance`,
       [amountText, receiver.id]
     );
-    await client.query(
-      `INSERT INTO transactions (type, sender_account_id, receiver_account_id, amount, status)
-       VALUES ('transfer', $1, $2, $3, 'success')`,
-      [sender.id, receiver.id, amountText]
-    );
+    // The settled v1 transfer fee is zero; it is still recorded so receipts
+    // and history show the real applied fee instead of inventing one later.
+    const ledger = await insertLedgerRow(client, {
+      type: "transfer", senderId: sender.id, receiverId: receiver.id, adminId: null,
+      amountText, narration: narration || null, feeText: "0.00",
+    });
+    const body = {
+      success: true,
+      message: `Successfully transferred ${displayAmount} to ${receiver.name}`,
+      newBalance: toNum(debited.rows[0].balance),
+      reference: ledger.reference,
+      fee: 0,
+      narration: narration || null,
+    };
+    if (idempotencyKey) {
+      await completeIdempotencyKey(client, { key: idempotencyKey, code: 200, body });
+    }
     await client.query("COMMIT");
     return {
-      senderNewBalance: toNum(debited.rows[0].balance),
+      body,
+      status: 200,
+      senderNewBalance: body.newBalance,
       receiverNewBalance: toNum(credited.rows[0].balance),
       receiverName: receiver.name,
+      reference: ledger.reference,
     };
   } catch (err) {
     try {
