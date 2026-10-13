@@ -34,8 +34,8 @@ describe("ledger integrity", () => {
     carolAccount = (await api(base, "GET", "/api/auth/me", { token: carolToken })).data.data.accountNumber;
     daveAccount = (await api(base, "GET", "/api/auth/me", { token: daveToken })).data.data.accountNumber;
 
-    await api(base, "POST", "/api/account/pin/create", { token: carolToken, body: { pin: "1111" } });
-    await api(base, "POST", "/api/account/pin/create", { token: daveToken, body: { pin: "2222" } });
+    // Registration now sets the transaction PIN directly; no separate
+    // pin/create call is needed.
 
     // Admin credits carry no per-operation limit in this phase.
     await api(base, "POST", "/api/admin/credit", {
