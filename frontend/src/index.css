@@ -62,9 +62,9 @@ body {
   border-color: var(--brand-strong);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-strong) 18%, transparent);
 }
-/* Leading-icon / trailing-toggle padding must live here (unlayered) so it
-   wins over .field's own padding: Tailwind's pl-*/pr-* utilities sit in
-   @layer utilities and lose the cascade against this unlayered rule. */
+/* Leading-icon and trailing-toggle padding must live here (unlayered) so it
+   wins over .field's own padding: Tailwind's padding utilities sit in
+   cascade layers and lose against this unlayered rule. */
 .field.has-left-icon { padding-left: 40px; }
 .field.has-right-toggle { padding-right: 56px; }
 .input-icon {

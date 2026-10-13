@@ -45,7 +45,7 @@ export default function Register() {
       subtitle="A simpler way to manage your account."
       footer={<>Already have an account? <Link to="/login" className="link-brand">Log in</Link></>}
     >
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-5">
         <Alert>{error}</Alert>
         <Field
           label="Full name"
