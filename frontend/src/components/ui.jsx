@@ -20,11 +20,11 @@ export function Field({ label, icon, ...props }) {
       <span className="label">{label}</span>
       <span className="relative block">
         {icon && (
-          <span aria-hidden="true" className="t-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
+          <span aria-hidden="true" className="input-icon t-muted">
             {icon}
           </span>
         )}
-        <input className={`field ${icon ? "pl-9" : ""}`} {...props} />
+        <input className={`field ${icon ? "has-left-icon" : ""}`} {...props} />
       </span>
     </label>
   );
@@ -38,13 +38,13 @@ export function PasswordField({ label, id, icon, ...props }) {
       <label className="label" htmlFor={inputId}>{label}</label>
       <span className="relative block">
         {icon && (
-          <span aria-hidden="true" className="t-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
+          <span aria-hidden="true" className="input-icon t-muted">
             {icon}
           </span>
         )}
         <input
           id={inputId}
-          className={`field pr-16 ${icon ? "pl-9" : ""}`}
+          className={`field has-right-toggle ${icon ? "has-left-icon" : ""}`}
           {...props}
           type={visible ? "text" : "password"}
         />

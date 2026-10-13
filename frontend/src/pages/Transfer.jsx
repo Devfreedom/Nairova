@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../lib/api";
 import { formatNaira } from "../lib/format";
-import { Alert, SectionHeading } from "../components/ui";
+import { Alert, Icons } from "../components/ui";
 
 export default function Transfer() {
   const [accountNumber, setAccountNumber] = useState("");
@@ -62,16 +62,26 @@ export default function Transfer() {
 
   return (
     <div className="mx-auto max-w-lg">
-      <div className="card">
-        <SectionHeading title="Transfer simulated funds" hint="Verify the recipient before sending." />
-        <form onSubmit={onSubmit} className="mt-4 space-y-3">
-          <Alert>{error}</Alert>
-          <Alert kind="success">{success}</Alert>
-          <label className="block">
+      <header>
+        <p className="eyebrow">Send money</p>
+        <h1 className="t-text mt-1 text-2xl font-bold tracking-tight">Transfer simulated funds</h1>
+        <p className="t-muted mt-0.5 text-sm">Verify the recipient, enter an amount, and confirm with your PIN.</p>
+      </header>
+
+      <form onSubmit={onSubmit} className="mt-5 space-y-4">
+        <Alert>{error}</Alert>
+        <Alert kind="success">{success}</Alert>
+
+        <section aria-labelledby="step-recipient" className="card">
+          <div className="flex items-center gap-2.5">
+            <span aria-hidden="true" className={`step-num ${verified ? "done" : ""}`}>1</span>
+            <h2 id="step-recipient" className="t-text text-base font-bold">Recipient</h2>
+          </div>
+          <label className="mt-3 block">
             <span className="label">Recipient account number</span>
             <span className="flex gap-2">
               <input
-                className="field"
+                className="field font-mono tracking-wider"
                 inputMode="numeric"
                 maxLength={10}
                 placeholder="10-digit account number"
@@ -79,43 +89,82 @@ export default function Transfer() {
                 onChange={(e) => { setAccountNumber(e.target.value.replace(/\D/g, "")); setVerified(null); }}
                 required
               />
-              <button type="button" onClick={handleVerify} disabled={verifying} className="btn-secondary shrink-0">
+              <button type="button" onClick={handleVerify} disabled={verifying} className="btn-secondary min-h-[44px] shrink-0">
                 {verifying ? "…" : "Verify"}
               </button>
             </span>
           </label>
           {verified && (
-            <p role="status" className="rounded-lg border border-[var(--border)] bg-[var(--ok-bg)] px-3 py-2 text-sm text-[var(--ok)]">
-              Recipient: <strong>{verified.name}</strong> ({verified.accountNumber})
-            </p>
+            <div role="status" className="t-border mt-3 flex items-center gap-3 rounded-xl border bg-[var(--ok-bg)] px-3.5 py-3">
+              <span aria-hidden="true" className="disc disc-in">
+                {String(verified.name || "?").trim().charAt(0).toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <p className="t-text truncate text-sm font-bold">{verified.name}</p>
+                <p className="t-muted font-mono text-xs">Acct {verified.accountNumber}</p>
+              </div>
+              <span className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--ok)]">
+                <span aria-hidden="true">✓</span> Verified
+              </span>
+            </div>
           )}
-          <label className="block">
-            <span className="label">Amount (₦, simulated)</span>
-            <input
-              className="field"
-              inputMode="decimal"
-              placeholder="e.g. 100,000"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required
-            />
-          </label>
-          <label className="block">
-            <span className="label">Transaction PIN</span>
-            <input
-              className="field"
-              type="password"
-              inputMode="numeric"
-              maxLength={4}
-              placeholder="4-digit PIN"
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-              required
-            />
-          </label>
-          <button className="btn-primary" disabled={busy}>{busy ? "Sending…" : "Send transfer"}</button>
-        </form>
-      </div>
+        </section>
+
+        <section aria-labelledby="step-payment" className="card">
+          <div className="flex items-center gap-2.5">
+            <span aria-hidden="true" className="step-num">2</span>
+            <h2 id="step-payment" className="t-text text-base font-bold">Amount &amp; PIN</h2>
+          </div>
+          <fieldset className="mt-3 space-y-3">
+            <label className="block">
+              <span className="label">Amount (₦, simulated)</span>
+              <input
+                className="field text-base font-semibold"
+                inputMode="decimal"
+                placeholder="e.g. 100,000"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="label">Transaction PIN</span>
+              <input
+                className="field"
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="4-digit PIN"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                required
+              />
+            </label>
+          </fieldset>
+        </section>
+
+        <section aria-labelledby="step-confirm" className="card card-muted">
+          <div className="flex items-center gap-2.5">
+            <span aria-hidden="true" className="step-num">3</span>
+            <h2 id="step-confirm" className="t-text text-base font-bold">Review &amp; send</h2>
+          </div>
+          <dl className="t-muted mt-3 space-y-1.5 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt>To</dt>
+              <dd className="t-text text-right font-semibold">{verified ? `${verified.name} · ${verified.accountNumber}` : "Not verified yet"}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt>Amount</dt>
+              <dd className="t-text font-semibold">{amount.trim() ? `₦${amount.trim()}` : "—"}</dd>
+            </div>
+          </dl>
+          <button className="btn-primary mt-4" disabled={busy}>
+            <span aria-hidden="true" className="mr-2">{Icons.send}</span>
+            {busy ? "Sending…" : "Send transfer"}
+          </button>
+          <p className="t-muted mt-2 text-center text-xs">Nothing moves until the server confirms the transfer.</p>
+        </section>
+      </form>
     </div>
   );
 }
