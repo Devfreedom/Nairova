@@ -247,6 +247,11 @@ describe("topup airtime purchases", () => {
     });
     assert.equal(other.status, 201);
     const otherToken = (await login(base, "08030200102", "Airtimeother1!")).data.token;
+    // Fund the second user so the request reaches the idempotency claim.
+    const fundOther = await api(base, "POST", "/api/admin/credit", {
+      token: adminToken, body: { accountNumber: other.data.data.accountNumber, amount: 5000 },
+    });
+    assert.equal(fundOther.status, 200);
 
     const res = await buy({ amount: 550, pin: "7878", idempotencyKey: key }, otherToken);
     assert.equal(res.status, 409);
