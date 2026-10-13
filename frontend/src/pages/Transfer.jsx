@@ -199,6 +199,7 @@ export default function Transfer() {
     setResultError("");
     setNeedsPinSetup(false);
     setDiscardArmed(false);
+    setRestoredNotice("");
     // Persist before submission so a refresh or timeout keeps this exact
     // intent (key + payload, never the PIN) available for a safe retry.
     savePending(pendingPayload(idempotencyKey));
@@ -212,6 +213,7 @@ export default function Transfer() {
     setIdempotencyKey(newKey());
     clearPending();
     setLocked(false);
+    setRestoredNotice("");
     setResultError("");
     setStep("review");
   }
