@@ -84,3 +84,21 @@ export function parseTransferAmount(raw) {
   }
   return parsed;
 }
+
+// Airtime-specific validation: parsing plus the approved ₦100–₦10,000
+// bounds (matches backend top-up catalogue constants). The backend
+// re-enforces these authoritatively; data prices come from the catalogue.
+export const AIRTIME_MIN_AMOUNT = 100;
+export const AIRTIME_MAX_AMOUNT = 10000;
+
+export function parseAirtimeAmount(raw) {
+  const parsed = parseAmount(raw);
+  if (!parsed.ok) return parsed;
+  if (parsed.value < AIRTIME_MIN_AMOUNT) {
+    return { ok: false, error: "Minimum airtime purchase is ₦100." };
+  }
+  if (parsed.value > AIRTIME_MAX_AMOUNT) {
+    return { ok: false, error: "Maximum airtime purchase is ₦10,000." };
+  }
+  return parsed;
+}
