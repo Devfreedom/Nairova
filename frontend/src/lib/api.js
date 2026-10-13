@@ -22,7 +22,7 @@ export function setOnUnauthorized(fn) {
   onUnauthorized = fn;
 }
 
-async function request(path, { method = "GET", body, auth = true } = {}) {
+async function request(path, { method = "GET", body, auth = true, signal } = {}) {
   const headers = { "Content-Type": "application/json" };
   const token = getToken();
   if (auth && token) headers.Authorization = `Bearer ${token}`;
@@ -33,9 +33,18 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal,
     });
-  } catch {
-    throw new Error("Cannot reach the API. Is the backend running?");
+  } catch (err) {
+    // Network failure or abort (e.g. timeout): the server may still have
+    // committed, so callers must treat this as an uncertain outcome.
+    const networkError =
+      err?.name === "AbortError"
+        ? new Error("The request timed out. The transfer may still have completed.")
+        : new Error("Cannot reach the API. Is the backend running?");
+    networkError.isNetworkError = true;
+    networkError.status = null;
+    throw networkError;
   }
 
   let data = null;
@@ -58,7 +67,12 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
       const wait = retryWaitMessage(res.headers);
       if (wait) message += ` ${wait}`;
     }
-    throw new Error(`${message}${details}`);
+    // Carry the status so callers can separate definitive backend rejections
+    // (4xx: nothing was executed) from uncertain outcomes (network/5xx).
+    const failure = new Error(`${message}${details}`);
+    failure.status = res.status;
+    failure.isNetworkError = false;
+    throw failure;
   }
   return data;
 }
@@ -96,7 +110,7 @@ export const api = {
   deposit: (amount) => request("/api/account/deposit", { method: "POST", body: { amount } }),
   verifyAccount: (accountNumber) =>
     request(`/api/account/verify/${encodeURIComponent(accountNumber)}`, { method: "POST" }),
-  transfer: (payload) => request("/api/transfer", { method: "POST", body: payload }),
+  transfer: (payload, signal) => request("/api/transfer", { method: "POST", body: payload, signal }),
   transactions: () => request("/api/account/transactions"),
   adminUsers: () => request("/api/admin/users"),
   adminCredit: (accountNumber, amount, extra = {}) =>
