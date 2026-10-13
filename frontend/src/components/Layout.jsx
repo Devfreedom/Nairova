@@ -15,12 +15,9 @@ function SideLink({ to, icon, children, end }) {
       className={({ isActive }) =>
         `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
           isActive
-            ? "bg-[var(--brand)] text-white dark:text-[#101C35]"
+            ? "bg-forest text-white dark:bg-voltaic dark:text-midnight"
             : "t-muted hover:t-text hover:bg-[var(--surface-2)]"
         }`
-      }
-      style={({ isActive }) =>
-        isActive ? { background: "var(--brand)", color: "var(--brand-ink)" } : undefined
       }
     >
       <span aria-hidden="true">{icon}</span>
@@ -44,7 +41,7 @@ function TabItem({ to, icon, label, end }) {
       {({ isActive }) => (
         <>
           <span aria-hidden="true" style={isActive ? { transform: "translateY(-1px)" } : undefined}>{icon}</span>
-          <span aria-current={isActive ? "page" : undefined}>{label}</span>
+          <span>{label}</span>
         </>
       )}
     </NavLink>

@@ -52,7 +52,7 @@ body {
 .t-border { border-color: var(--border); }
 
 .field {
-  @apply w-full rounded-lg border px-3 py-2 text-sm outline-none transition-shadow;
+  @apply w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition-shadow;
   background: var(--surface);
   border-color: var(--border);
   color: var(--text);
@@ -65,6 +65,7 @@ body {
 
 .btn-primary {
   @apply inline-flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60;
+  min-height: 44px;
   background: var(--brand);
   color: #fff;
 }
