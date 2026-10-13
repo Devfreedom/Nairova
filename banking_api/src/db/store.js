@@ -714,6 +714,12 @@ async function depositToAccount(userId, amountText, { idempotencyKey, fingerprin
       await completeIdempotencyKey(client, { key: idempotencyKey, code: 200, body });
     }
     await client.query("COMMIT");
+    await maybeNotifyMoneyEvents([{
+      userId,
+      subject: "simulated deposit received",
+      body: `Your simulated deposit of ${nairaText(amountText)} is available.`,
+      reference: ledger.reference,
+    }]);
     return {
       body,
       status: 200,
@@ -818,6 +824,12 @@ async function adminCredit({ adminId, accountNumber, amountText, narration, idem
       await completeIdempotencyKey(client, { key: idempotencyKey, code: 200, body });
     }
     await client.query("COMMIT");
+    await maybeNotifyMoneyEvents([{
+      userId: recipient.user_id,
+      subject: "simulated credit received",
+      body: `Nairova added ${nairaText(amountText)} in simulated funds to your account.`,
+      reference: ledger.reference,
+    }]);
     return {
       body,
       status: 200,
@@ -943,6 +955,20 @@ async function transferFunds({ senderUserId, receiverAccountNumber, amountText, 
       await completeIdempotencyKey(client, { key: idempotencyKey, code: 200, body });
     }
     await client.query("COMMIT");
+    await maybeNotifyMoneyEvents([
+      {
+        userId: senderUserId,
+        subject: "transfer sent",
+        body: `You sent ${nairaText(amountText)} to account ${receiver.account_number}.`,
+        reference: ledger.reference,
+      },
+      {
+        userId: receiver.user_id,
+        subject: "transfer received",
+        body: `You received ${nairaText(amountText)} from account ${sender.account_number}.`,
+        reference: ledger.reference,
+      },
+    ]);
     return {
       body,
       status: 200,
@@ -1033,6 +1059,12 @@ module.exports = {
   adminCredit,
   transferFunds,
   bootstrapAdminRecord,
+  updateProfile,
+  createEmailVerificationToken,
+  consumeEmailVerificationToken,
+  getPreferences,
+  updatePreferences,
+  maybeNotifyMoneyEvents,
   listNotifications,
   unreadNotificationCount,
   markNotificationRead,
