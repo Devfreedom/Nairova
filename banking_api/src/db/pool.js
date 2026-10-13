@@ -26,6 +26,8 @@ function stripSslParams(connectionString) {
     });
   return kept.length ? `${base}?${kept.join("&")}` : base;
 }
+
+function createPool(connectionString) {
   if (!connectionString) {
     throw new Error(
       "Missing database configuration. Set DATABASE_URL to a PostgreSQL connection string."
