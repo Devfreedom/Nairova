@@ -1,8 +1,7 @@
 import { Link } from "react-router-dom";
 import { BrandMark, ThemeToggle } from "./ui";
 
-// Split-screen auth shell: ~40% form panel, ~60% brand panel on desktop.
-// On narrow screens the brand panel collapses so the form stays above the fold.
+
 export default function AuthLayout({ title, subtitle, children, footer }) {
   return (
     <div className="t-bg relative flex min-h-screen">
