@@ -857,5 +857,3 @@ export default function TopUp() {
   );
 }
 
-// Re-exported for the parser test's storage-shape contract check.
-export { TOPUP_PENDING_KEY };
