@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const AppError = require("../utils/AppError")
 const { normalizeAmount } = require("../utils/money");
+const { validateIdempotencyKey, fingerprint } = require("../utils/ledger");
 const {
   findUserById,
   setPinHash,
@@ -96,7 +97,7 @@ const updatePin = async (req, res, next) => {
 
 const deposit = async (req, res, next) => {
   try {
-    const { amount: rawAmount } = req.body;
+    const { amount: rawAmount, idempotencyKey: rawKey } = req.body;
 
     const parsed = normalizeAmount(rawAmount);
     if (!parsed.ok) {
@@ -104,17 +105,27 @@ const deposit = async (req, res, next) => {
     }
     const amount = parsed.value;
 
-    const result = await depositToAccount(req.user.id, amount.toFixed(2));
-
-    if (!result) {
-      throw new AppError('User not found', 404);
+    const keyParsed = validateIdempotencyKey(rawKey);
+    if (!keyParsed.ok) {
+      throw new AppError(keyParsed.error, 400);
     }
 
-    res.status(200).json({
-      success: true,
-      message: `Successfully deposited ${amount} (simulated demo funds)`,
-      newBalance: result.newBalance,
+    const amountText = amount.toFixed(2);
+    const result = await depositToAccount(req.user.id, amountText, {
+      idempotencyKey: keyParsed.key,
+      fingerprint: fingerprint(["deposit", String(req.user.id), amountText]),
+      displayAmount: amount,
     });
+
+    if (result.replay) {
+      return res.status(result.code).json(result.body);
+    }
+
+    if (result.error) {
+      throw new AppError(result.error.message, result.error.status);
+    }
+
+    res.status(result.status).json(result.body);
   } catch (err) {
     next(err);
   }

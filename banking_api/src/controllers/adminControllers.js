@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const AppError = require("../utils/AppError");
 const { normalizeAmount } = require("../utils/money");
+const { validateIdempotencyKey, normalizeNarration, fingerprint } = require("../utils/ledger");
 const { PASSWORD_REGEX, PASSWORD_REQUIREMENTS } = require("../utils/password");
 const {
   listUsers,
@@ -24,13 +25,16 @@ const listCustomers = async (req, res, next) => {
 
 // Admin-only: credit a customer with simulated demo funds.
 // Executes as one database transaction and reports the persisted balance.
+// An optional reason is recorded as the ledger narration; no amount limits
+// beyond the shared cap are imposed in this phase (unapproved policy).
 const creditAccount = async (req, res, next) => {
   try {
-    const { accountNumber, amount: rawAmount } = req.body;
+    const { accountNumber, amount: rawAmount, reason: rawReason, idempotencyKey: rawKey } = req.body;
 
     if (!accountNumber || String(accountNumber).trim() === "") {
       throw new AppError("Recipient account number is required", 400);
     }
+    const recipient = String(accountNumber).trim();
 
     const parsed = normalizeAmount(rawAmount);
     if (!parsed.ok) {
@@ -38,24 +42,36 @@ const creditAccount = async (req, res, next) => {
     }
     const amount = parsed.value;
 
-    const result = await storeAdminCredit({
-      adminId: req.user.id,
-      accountNumber: String(accountNumber).trim(),
-      amountText: amount.toFixed(2),
-    });
-
-    if (!result) {
-      throw new AppError("Recipient account not found", 404);
+    const reasonParsed = normalizeNarration(rawReason);
+    if (!reasonParsed.ok) {
+      throw new AppError(reasonParsed.error, 400);
     }
 
-    res.status(200).json({
-      success: true,
-      message: `Credited ${amount} (simulated funds) to ${result.recipientName}`,
-      data: {
-        transaction: result.transaction,
-        newBalance: result.newBalance,
-      },
+    const keyParsed = validateIdempotencyKey(rawKey);
+    if (!keyParsed.ok) {
+      throw new AppError(keyParsed.error, 400);
+    }
+
+    const amountText = amount.toFixed(2);
+    const result = await storeAdminCredit({
+      adminId: req.user.id,
+      accountNumber: recipient,
+      amountText,
+      narration: reasonParsed.narration,
+      idempotencyKey: keyParsed.key,
+      fingerprint: fingerprint(["admin_credit", String(req.user.id), recipient, amountText, reasonParsed.narration || ""]),
+      displayAmount: amount,
     });
+
+    if (result.replay) {
+      return res.status(result.code).json(result.body);
+    }
+
+    if (result.error) {
+      throw new AppError(result.error.message, result.error.status);
+    }
+
+    res.status(result.status).json(result.body);
   } catch (err) {
     next(err);
   }
