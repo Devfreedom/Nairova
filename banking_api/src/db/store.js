@@ -332,34 +332,61 @@ async function allTransactions() {
   return rows.map(mapTxn);
 }
 
-// Self-deposit of simulated funds: balance update + ledger insert in one transaction.
-async function depositToAccount(userId, amountText) {
+// Self-deposit of simulated funds: idempotency claim + balance update +
+// ledger insert in one transaction. Returns { body, status } on success,
+// { replay } for a legitimate retry, or { error } when nothing was executed.
+async function depositToAccount(userId, amountText, { idempotencyKey, fingerprint, displayAmount } = {}) {
   const pool = getPool();
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    if (idempotencyKey) {
+      const claim = await claimIdempotencyKey(client, {
+        key: idempotencyKey, userId, endpoint: "POST /api/account/deposit", fingerprint,
+      });
+      if (claim.replay) {
+        await client.query("ROLLBACK");
+        return { replay: true, code: claim.code, body: claim.body };
+      }
+      if (claim.conflict) {
+        await client.query("ROLLBACK");
+        return { error: claim.conflict };
+      }
+    }
     const { rows } = await client.query(
       `SELECT a.id, a.account_number FROM accounts a WHERE a.user_id = $1 FOR UPDATE`,
       [userId]
     );
     if (!rows.length) {
       await client.query("ROLLBACK");
-      return null;
+      return { error: { message: "User not found", status: 404 } };
     }
     const accountId = rows[0].id;
     const updated = await client.query(
       `UPDATE accounts SET balance = balance + $1 WHERE id = $2 RETURNING balance, account_number`,
       [amountText, accountId]
     );
-    await client.query(
-      `INSERT INTO transactions (type, sender_account_id, receiver_account_id, amount, status)
-       VALUES ('deposit', NULL, $1, $2, 'success')`,
-      [accountId, amountText]
-    );
+    const ledger = await insertLedgerRow(client, {
+      type: "deposit", senderId: null, receiverId: accountId, adminId: null,
+      amountText, narration: null, feeText: "0.00",
+    });
+    const body = {
+      success: true,
+      message: `Successfully deposited ${displayAmount} (simulated demo funds)`,
+      newBalance: toNum(updated.rows[0].balance),
+      reference: ledger.reference,
+      fee: 0,
+    };
+    if (idempotencyKey) {
+      await completeIdempotencyKey(client, { key: idempotencyKey, code: 200, body });
+    }
     await client.query("COMMIT");
     return {
-      newBalance: toNum(updated.rows[0].balance),
+      body,
+      status: 200,
+      newBalance: body.newBalance,
       accountNumber: updated.rows[0].account_number,
+      reference: ledger.reference,
     };
   } catch (err) {
     try {
