@@ -1,6 +1,6 @@
 // Email verification lifecycle: issuance, shape validation, single-use
 // consumption, and verified email-category opt-in.
-// Rate-limited calls in this file: 7 (limit is 10).
+// Rate-limited calls in this file: 8 (limit is 10).
 const { describe, it, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { resetDb, seedAdmin, bootApp, baseUrl, api, login, teardown } = require("./setup");
