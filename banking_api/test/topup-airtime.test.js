@@ -4,6 +4,7 @@
 const { describe, it, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { randomUUID } = require("node:crypto");
+const http = require("node:http");
 const { testPool, resetDb, seedAdmin, bootApp, baseUrl, api, login, teardown } = require("./setup");
 
 describe("topup airtime purchases", () => {
@@ -275,4 +276,5 @@ describe("topup airtime purchases", () => {
     assert.deepEqual(results.map((r) => r.data), results.map(() => results[0].data));
     assert.equal(await balance(), before - 800);
   });
-});
+
+  it("converges an aborted connection into exactly one purchase", async () => {
