@@ -4,93 +4,20 @@ import { api } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { parseTransferAmount } from "../lib/amount";
 import { formatNaira } from "../lib/format";
+import {
+  SUBMIT_TIMEOUT_MS,
+  mintKey,
+  loadPending,
+  savePending,
+  clearPending,
+  isUncertainOutcome,
+  isPinlessError,
+  lagosTime,
+  buildReceiptText,
+} from "../lib/transfer";
 import { Alert, Icons } from "../components/ui";
 
 const STEPS = ["Details", "Review", "Confirm"];
-const SUBMIT_TIMEOUT_MS = 30000;
-
-// Pending intents live in sessionStorage so a refresh cannot orphan an
-// uncertain transfer. The transaction PIN is never stored — only the
-// non-secret payload plus the idempotency key.
-const PENDING_KEY = "nairova.pendingTransfer";
-
-function newKey() {
-  return crypto.randomUUID();
-}
-
-function loadPending() {
-  try {
-    const raw = sessionStorage.getItem(PENDING_KEY);
-    if (!raw) return null;
-    const p = JSON.parse(raw);
-    if (
-      !p ||
-      typeof p.key !== "string" ||
-      typeof p.receiverAccountNumber !== "string" ||
-      typeof p.receiverName !== "string" ||
-      typeof p.amount !== "number" ||
-      !Number.isFinite(p.amount)
-    ) {
-      return null;
-    }
-    return {
-      key: p.key,
-      receiverAccountNumber: p.receiverAccountNumber,
-      receiverName: p.receiverName,
-      amount: p.amount,
-      amountDisplay: typeof p.amountDisplay === "string" ? p.amountDisplay : String(p.amount),
-      narration: typeof p.narration === "string" ? p.narration : "",
-    };
-  } catch {
-    return null;
-  }
-}
-
-function savePending(pending) {
-  try {
-    sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
-  } catch {
-    // Storage may be unavailable; the in-memory flow still works.
-  }
-}
-
-function clearPending() {
-  try {
-    sessionStorage.removeItem(PENDING_KEY);
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
-// 4xx responses are definitive backend rejections: validation, auth, and rate
-// limits are all decided before the money transaction runs, so nothing was
-// executed. Network failures, timeouts, and 5xx are uncertain — the server
-// may have committed without the browser receiving the response.
-function isUncertainOutcome(err) {
-  if (err?.isNetworkError) return true;
-  const status = err?.status;
-  if (status === null || status === undefined) return true;
-  return status >= 500;
-}
-
-function isPinlessError(err) {
-  return /must create a pin/i.test(err?.message || "");
-}
-
-function lagosTime(iso) {
-  try {
-    return new Date(iso).toLocaleString("en-NG", {
-      timeZone: "Africa/Lagos",
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
-}
 
 export default function Transfer() {
   const navigate = useNavigate();
@@ -102,7 +29,7 @@ export default function Transfer() {
   const [pin, setPin] = useState("");
   const [verified, setVerified] = useState(null);
   const [parsedAmount, setParsedAmount] = useState(null);
-  const [idempotencyKey, setIdempotencyKey] = useState(newKey);
+  const [idempotencyKey, setIdempotencyKey] = useState(mintKey);
   // Locked payload: while a pending intent exists, details cannot be edited
   // under the same key (the server would 409 a changed fingerprint anyway).
   const [locked, setLocked] = useState(false);
@@ -180,7 +107,7 @@ export default function Transfer() {
     setParsedAmount(parsed.value);
     // One idempotency key per intended transfer, minted as the user commits
     // to these details. Retries reuse it; a new transfer mints a fresh one.
-    setIdempotencyKey(newKey());
+    setIdempotencyKey(mintKey());
     setStep("review");
   }
 
@@ -210,7 +137,7 @@ export default function Transfer() {
   // Editing details abandons the current key: a changed payload under an old
   // key would be rejected, so a fresh key starts the new intent.
   function handleBackToReview() {
-    setIdempotencyKey(newKey());
+    setIdempotencyKey(mintKey());
     clearPending();
     setLocked(false);
     setRestoredNotice("");
@@ -237,7 +164,7 @@ export default function Transfer() {
     setDiscardArmed(false);
     setShareNote("");
     clearPending();
-    setIdempotencyKey(newKey());
+    setIdempotencyKey(mintKey());
   }
 
   async function handleConfirm() {
@@ -267,7 +194,7 @@ export default function Transfer() {
       clearPending();
       setResult(res);
       setPin("");
-      setIdempotencyKey(newKey());
+      setIdempotencyKey(mintKey());
       setLocked(false);
       setStep("result");
       // Best-effort receipt enrichment: match the ledger row for its
