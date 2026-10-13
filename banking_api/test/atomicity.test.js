@@ -2,8 +2,8 @@
 // fully, and records survive a fresh pool (reconnect) cycle.
 const { describe, it, before, after } = require("node:test");
 const assert = require("node:assert/strict");
-const { testPool, resetDb, seedAdmin, bootApp, baseUrl, api, login, teardown } = require("./setup");
-const { closePool } = require("../src/db/pool");
+const { testPool, resetDb, seedAdmin, bootApp, baseUrl, api, login, teardown, freshPool } = require("./setup");
+const { closePool, getPool } = require("../src/db/pool");
 
 describe("transfer atomicity", () => {
   let server;
@@ -102,17 +102,22 @@ describe("transfer atomicity", () => {
     const expectedBalance = await balance(aliceToken);
     const expectedCount = await transferCount();
     await closePool();
-    const { getPool } = require("../src/db/pool");
-    const fresh = getPool();
-    const { rows } = await fresh.query(
-      `SELECT a.balance FROM accounts a JOIN users u ON u.id = a.user_id WHERE u.email = $1`,
-      ["alice.race@example.com"]
-    );
-    assert.equal(Number(rows[0].balance), expectedBalance);
-    const counted = await fresh.query(
-      "SELECT COUNT(*)::int AS n FROM transactions WHERE type = 'transfer' AND sender_account_id = $1",
-      [await accountIdByEmail("alice.race@example.com")]
-    );
-    assert.equal(counted.rows[0].n, expectedCount);
+    const fresh = freshPool();
+    try {
+      const { rows } = await fresh.query(
+        `SELECT a.balance FROM accounts a JOIN users u ON u.id = a.user_id WHERE u.email = $1`,
+        ["alice.race@example.com"]
+      );
+      assert.equal(Number(rows[0].balance), expectedBalance);
+      const counted = await fresh.query(
+        "SELECT COUNT(*)::int AS n FROM transactions WHERE type = 'transfer' AND sender_account_id = $1",
+        [await accountIdByEmail("alice.race@example.com")]
+      );
+      assert.equal(counted.rows[0].n, expectedCount);
+    } finally {
+      await fresh.end();
+    }
+    // Re-establish the singleton pool for teardown.
+    getPool();
   });
 });

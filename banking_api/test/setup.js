@@ -91,4 +91,9 @@ async function teardown(server) {
   await closePool();
 }
 
-module.exports = { testPool, resetDb, seedAdmin, bootApp, baseUrl, api, login, teardown };
+// An independent pool for reconnect/persistence checks. Caller must end it.
+function freshPool() {
+  return createPool(TEST_URL);
+}
+
+module.exports = { testPool, resetDb, seedAdmin, bootApp, baseUrl, api, login, teardown, freshPool };
