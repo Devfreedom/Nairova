@@ -67,7 +67,7 @@ function isUniqueViolation(err, constraint) {
 async function findUserByEmail(email, client) {
   const db = client || getPool();
   const { rows } = await db.query(
-    `SELECT u.id AS user_id, u.name, u.email, u.role, u.password_hash, u.pin_hash,
+    `SELECT u.id AS user_id, u.name, u.email, u.phone, u.role, u.password_hash, u.pin_hash,
             u.created_at AS user_created_at,
             a.id AS account_id, a.account_number, a.balance, a.currency
      FROM users u JOIN accounts a ON a.user_id = u.id
@@ -77,10 +77,28 @@ async function findUserByEmail(email, client) {
   return rows.length ? mapUserAccount(rows[0]) : null;
 }
 
+async function findUserByPhone(phone, client) {
+  const db = client || getPool();
+  const { rows } = await db.query(
+    `SELECT u.id AS user_id, u.name, u.email, u.phone, u.role, u.password_hash, u.pin_hash,
+            u.created_at AS user_created_at,
+            a.id AS account_id, a.account_number, a.balance, a.currency
+     FROM users u JOIN accounts a ON a.user_id = u.id
+     WHERE u.phone = $1`,
+    [phone]
+  );
+  return rows.length ? mapUserAccount(rows[0]) : null;
+}
+
+async function findUserByIdentifier({ kind, value }, client) {
+  if (kind === "phone") return findUserByPhone(value, client);
+  return findUserByEmail(value, client);
+}
+
 async function findUserById(id, client) {
   const db = client || getPool();
   const { rows } = await db.query(
-    `SELECT u.id AS user_id, u.name, u.email, u.role, u.password_hash, u.pin_hash,
+    `SELECT u.id AS user_id, u.name, u.email, u.phone, u.role, u.password_hash, u.pin_hash,
             u.created_at AS user_created_at,
             a.id AS account_id, a.account_number, a.balance, a.currency
      FROM users u JOIN accounts a ON a.user_id = u.id
@@ -91,7 +109,9 @@ async function findUserById(id, client) {
 }
 
 // Registration creates the user and its account atomically.
-async function registerUser({ name, email, passwordHash }) {
+// Either email or phone (canonical E.164) must be provided; uniqueness for
+// both is enforced by partial unique indexes in migration 002.
+async function registerUser({ name, email, phone, passwordHash }) {
   const pool = getPool();
   const client = await pool.connect();
   try {
@@ -99,14 +119,22 @@ async function registerUser({ name, email, passwordHash }) {
     let userId;
     try {
       const { rows } = await client.query(
-        `INSERT INTO users (name, email, password_hash, role)
-         VALUES ($1, $2, $3, 'user') RETURNING id`,
-        [name, email, passwordHash]
+        `INSERT INTO users (name, email, phone, password_hash, role)
+         VALUES ($1, $2, $3, $4, 'user') RETURNING id`,
+        [name, email || null, phone || null, passwordHash]
       );
       userId = rows[0].id;
     } catch (err) {
       await client.query("ROLLBACK");
-      if (isUniqueViolation(err, "users_email_key")) {
+      if (isUniqueViolation(err, "users_email_key") || isUniqueViolation(err, "users_email_unique")) {
+        throw new AppError(DUPLICATE_EMAIL_MESSAGE, 409);
+      }
+      if (isUniqueViolation(err, "users_phone_unique")) {
+        throw new AppError(DUPLICATE_PHONE_MESSAGE, 409);
+      }
+      if (isUniqueViolation(err)) {
+        const constraint = String(err.constraint || "");
+        if (constraint.includes("phone")) throw new AppError(DUPLICATE_PHONE_MESSAGE, 409);
         throw new AppError(DUPLICATE_EMAIL_MESSAGE, 409);
       }
       throw err;
