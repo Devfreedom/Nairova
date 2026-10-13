@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { parseAmount } from "../lib/amount";
 import { formatDate, formatNaira } from "../lib/format";
 import { Alert, Empty } from "../components/ui";
 
@@ -9,7 +10,7 @@ export default function Admin() {
   const [accountNumber, setAccountNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [receipt, setReceipt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
