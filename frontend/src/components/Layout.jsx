@@ -1,5 +1,7 @@
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, userIdentifier } from "../auth/AuthContext";
+import { useUnread } from "../notifications/UnreadContext";
 import { BrandMark, Icons, ThemeToggle } from "./ui";
 
 function initials(name) {
@@ -46,12 +48,25 @@ function TabItem({ to, icon, label, end }) {
 
 export default function Layout({ children }) {
   const { user, logout, isAdmin } = useAuth();
+  const { unread, refresh } = useUnread();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // The badge is a point-in-time API value, refreshed on every navigation.
+  useEffect(() => {
+    refresh();
+  }, [location.pathname, refresh]);
 
   function handleLogout() {
     logout();
     navigate("/login");
   }
+
+  const badge = unread > 0 ? (
+    <span aria-hidden="true" className="ml-auto shrink-0 rounded-full bg-[var(--brand-strong)] px-2 py-0.5 text-[11px] font-extrabold text-white dark:text-[#101C35]">
+      {unread > 99 ? "99+" : unread}
+    </span>
+  ) : null;
 
   return (
     <div className="t-bg min-h-screen md:flex">
@@ -66,6 +81,9 @@ export default function Layout({ children }) {
           <SideLink to="/" end icon={Icons.home}>Dashboard</SideLink>
           <SideLink to="/transfer" icon={Icons.send}>Transfer</SideLink>
           <SideLink to="/history" icon={Icons.clock}>History</SideLink>
+          <SideLink to="/notifications" icon={Icons.bell}>
+            Notifications{badge}
+          </SideLink>
           {isAdmin && (
             <>
               <p className="eyebrow px-3 pb-1.5 pt-4">Manage</p>
@@ -109,6 +127,20 @@ export default function Layout({ children }) {
               <span className="t-text text-[17px] font-extrabold tracking-tight">Nairova</span>
             </Link>
             <div className="flex items-center gap-2">
+              {user && (
+                <Link
+                  to="/notifications"
+                  aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+                  className="t-muted relative rounded-lg p-2"
+                >
+                  <span aria-hidden="true">{Icons.bell}</span>
+                  {unread > 0 && (
+                    <span aria-hidden="true" className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--brand-strong)] px-1 text-[10px] font-extrabold text-white dark:text-[#101C35]">
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
+                </Link>
+              )}
               <ThemeToggle />
               {user && (
                 <button onClick={handleLogout} className="t-muted rounded-lg px-2 py-1 text-sm font-semibold">
