@@ -400,12 +400,27 @@ async function depositToAccount(userId, amountText, { idempotencyKey, fingerprin
   }
 }
 
-// Admin credit: lock recipient, update with SQL arithmetic, insert ledger row, commit.
-async function adminCredit({ adminId, accountNumber, amountText }) {
+// Admin credit: idempotency claim + lock recipient + SQL arithmetic + ledger
+// insert in one transaction. Returns { body, status } on success, { replay }
+// for a legitimate retry, or { error } when nothing was executed.
+async function adminCredit({ adminId, accountNumber, amountText, narration, idempotencyKey, fingerprint, displayAmount }) {
   const pool = getPool();
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    if (idempotencyKey) {
+      const claim = await claimIdempotencyKey(client, {
+        key: idempotencyKey, userId: adminId, endpoint: "POST /api/admin/credit", fingerprint,
+      });
+      if (claim.replay) {
+        await client.query("ROLLBACK");
+        return { replay: true, code: claim.code, body: claim.body };
+      }
+      if (claim.conflict) {
+        await client.query("ROLLBACK");
+        return { error: claim.conflict };
+      }
+    }
     const { rows } = await client.query(
       `SELECT a.id, u.id AS user_id, u.name FROM accounts a
        JOIN users u ON u.id = a.user_id
@@ -414,7 +429,7 @@ async function adminCredit({ adminId, accountNumber, amountText }) {
     );
     if (!rows.length) {
       await client.query("ROLLBACK");
-      return null;
+      return { error: { message: "Recipient account not found", status: 404 } };
     }
     const recipient = rows[0];
     const adminRes = await client.query(
@@ -427,28 +442,42 @@ async function adminCredit({ adminId, accountNumber, amountText }) {
       `UPDATE accounts SET balance = balance + $1 WHERE id = $2 RETURNING balance`,
       [amountText, recipient.id]
     );
-    const inserted = await client.query(
-      `INSERT INTO transactions (type, sender_account_id, receiver_account_id, admin_user_id, amount, status)
-       VALUES ('admin_credit', NULL, $1, $2, $3, 'success')
-       RETURNING id, type, amount, status, created_at`,
-      [recipient.id, adminId, amountText]
-    );
-    await client.query("COMMIT");
-    const t = inserted.rows[0];
-    return {
-      transaction: {
-        id: t.id,
-        type: t.type,
-        senderId: adminId,
-        senderAccountNumber: adminRow.account_number || null,
-        adminEmail: adminRow.email || null,
-        receiverId: recipient.user_id,
-        receiverAccountNumber: accountNumber,
-        amount: toNum(t.amount),
-        status: t.status,
-        timestamp: t.created_at,
+    const ledger = await insertLedgerRow(client, {
+      type: "admin_credit", senderId: null, receiverId: recipient.id, adminId,
+      amountText, narration: narration || null, feeText: "0.00",
+    });
+    const transaction = {
+      id: ledger.id,
+      reference: ledger.reference,
+      type: "admin_credit",
+      senderId: adminId,
+      senderAccountNumber: adminRow.account_number || null,
+      adminEmail: adminRow.email || null,
+      receiverId: recipient.user_id,
+      receiverAccountNumber: accountNumber,
+      amount: toNum(amountText),
+      fee: 0,
+      narration: narration || null,
+      status: "success",
+      timestamp: ledger.created_at,
+    };
+    const body = {
+      success: true,
+      message: `Credited ${displayAmount} (simulated funds) to ${recipient.name}`,
+      data: {
+        transaction,
+        newBalance: toNum(updated.rows[0].balance),
       },
-      newBalance: toNum(updated.rows[0].balance),
+    };
+    if (idempotencyKey) {
+      await completeIdempotencyKey(client, { key: idempotencyKey, code: 200, body });
+    }
+    await client.query("COMMIT");
+    return {
+      body,
+      status: 200,
+      transaction,
+      newBalance: body.data.newBalance,
       recipientName: recipient.name,
     };
   } catch (err) {
