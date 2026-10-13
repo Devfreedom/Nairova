@@ -1,12 +1,12 @@
 const jwt = require("jsonwebtoken");
-const { users } = require("../data/users");
+const { findUserById } = require("../db/store");
 const AppError = require("../utils/AppError");
 
 function getJwtSecret() {
   return process.env.JWT_SECRET;
 }
 
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -22,7 +22,9 @@ const authenticate = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, jwtSecret);
 
-    const user = users.find((u) => u.id === decoded.id);
+    // Identity and role are loaded from the database so stale token claims
+    // cannot grant outdated privileges.
+    const user = await findUserById(decoded.id);
     if (!user) {
       return next(new AppError("User no longer exists", 401));
     }
@@ -30,6 +32,7 @@ const authenticate = (req, res, next) => {
     req.user = { id: user.id, name: user.name, email: user.email, role: user.role, accountNumber: user.accountNumber };
     next();
   } catch (err) {
+    if (err instanceof AppError) return next(err);
     next(new AppError("Invalid or expired token", 401));
   }
 };
