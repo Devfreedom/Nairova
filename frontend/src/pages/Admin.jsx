@@ -79,6 +79,48 @@ export default function Admin() {
     : null;
   const preview = parseAmount(amount);
 
+  function openReset(customer) {
+    setResetTarget(customer);
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetError("");
+    setResetSuccess("");
+  }
+
+  function closeReset() {
+    if (resetBusy) return;
+    setResetTarget(null);
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetError("");
+    setResetSuccess("");
+  }
+
+  async function onResetPassword(e) {
+    e.preventDefault();
+    if (resetBusy || !resetTarget) return;
+    setResetError("");
+    setResetSuccess("");
+    if (newPassword !== confirmPassword) {
+      setResetError("Passwords do not match. Enter the new password twice.");
+      return;
+    }
+    setResetBusy(true);
+    try {
+      // Success is claimed only after the backend confirms the reset.
+      const res = await api.adminResetPassword(resetTarget.id, newPassword, confirmPassword);
+      setResetSuccess(
+        `Password reset for ${res.data?.name || resetTarget.name} (${res.data?.email || resetTarget.email}). They can now log in with the new password.`
+      );
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setResetError(err.message);
+    } finally {
+      setResetBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="card">
@@ -168,13 +210,24 @@ export default function Admin() {
                     <td className="py-2 pr-2 font-mono text-xs">{u.accountNumber}</td>
                     <td className="py-2 pr-2 font-semibold">{formatNaira(u.balance)}</td>
                     <td className="py-2">
-                      <button
-                        className="btn-secondary px-3 py-1 text-xs"
-                        disabled={busy}
-                        onClick={() => { setAccountNumber(u.accountNumber); setReceipt(null); }}
-                      >
-                        Select
-                      </button>
+                      <span className="flex flex-wrap gap-1">
+                        <button
+                          className="btn-secondary px-3 py-1 text-xs"
+                          disabled={busy}
+                          onClick={() => { setAccountNumber(u.accountNumber); setReceipt(null); }}
+                        >
+                          Select
+                        </button>
+                        {u.role !== "admin" && (
+                          <button
+                            className="btn-secondary px-3 py-1 text-xs"
+                            disabled={resetBusy}
+                            onClick={() => openReset(u)}
+                          >
+                            Reset password
+                          </button>
+                        )}
+                      </span>
                     </td>
                   </tr>
                 ))}
