@@ -2,10 +2,9 @@ const AppError = require("../utils/AppError");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
-const ALLOWED_ROLES = ["admin", "user"];
 
 const validateRegister = (req, res, next) => {
-  const { name, email, password, role } = req.body || {};
+  const { name, email, password } = req.body || {};
   const errors = [];
 
   if (typeof name !== "string" || name.trim() === "") {
@@ -22,9 +21,9 @@ const validateRegister = (req, res, next) => {
     );
   }
 
-  if (!ALLOWED_ROLES.includes(role)) {
-    errors.push("Role must be either 'admin' or 'user'");
-  }
+  // NOTE: public registration never accepts a client-supplied role.
+  // All public signups create ordinary users; admins are provisioned
+  // server-side via the ADMIN_* environment bootstrap.
 
   if (errors.length > 0) {
     return next(new AppError("Validation failed", 400, errors));

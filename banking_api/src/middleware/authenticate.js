@@ -1,7 +1,10 @@
 const jwt = require("jsonwebtoken");
-const jwtSecret = process.env.JWT_SECRET;
-const users = require("../data/users");
+const { users } = require("../data/users");
 const AppError = require("../utils/AppError");
+
+function getJwtSecret() {
+  return process.env.JWT_SECRET;
+}
 
 const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -11,6 +14,10 @@ const authenticate = (req, res, next) => {
   }
 
   const token = authHeader.split(" ")[1];
+  const jwtSecret = getJwtSecret();
+  if (!jwtSecret) {
+    return next(new AppError("Server misconfigured: authentication unavailable", 500));
+  }
 
   try {
     const decoded = jwt.verify(token, jwtSecret);
@@ -20,7 +27,7 @@ const authenticate = (req, res, next) => {
       return next(new AppError("User no longer exists", 401));
     }
 
-    req.user = { id: user.id, name: user.name, email: user.email, role: user.role };
+    req.user = { id: user.id, name: user.name, email: user.email, role: user.role, accountNumber: user.accountNumber };
     next();
   } catch (err) {
     next(new AppError("Invalid or expired token", 401));

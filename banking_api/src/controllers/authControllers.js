@@ -3,11 +3,14 @@ const {users, getNextId} = require("../data/users");
 const jwt = require("jsonwebtoken");
 const AppError = require("../utils/AppError");
 const jwtSecret = process.env.JWT_SECRET;
-const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "1h"
+const jwtExpiresIn = process.env.JWT_EXPIRES_IN || process.env.JwT_EXPIRES_IN || "1h"
 
 const register = async (req, res, next) => {
     try {
-        const { name, email, password, role } = req.body;
+        const { name, email, password } = req.body;
+
+        // Public registration always creates an ordinary user.
+        // The role field from the client is intentionally ignored.
 
         const emailExists = users.find((user) => user.email === email);
         if (emailExists) {
@@ -33,7 +36,7 @@ const register = async (req, res, next) => {
             name,
             email,
             password: hashedPassword,
-            role,
+            role: "user",
             balance: 0,
             pin: null,
             accountNumber
@@ -59,7 +62,11 @@ const login = async (req, res, next) => {
         const user = users.find((u) => u.email === email);
         const passwordMatches = user ? await bcrypt.compare(password, user.password) : false;
         if (!user || !passwordMatches) {
-            throw new AppError("Invalid password", 401)
+            throw new AppError("Invalid email or password", 401)
+        }
+
+        if (!jwtSecret) {
+            throw new AppError("Server misconfigured: authentication unavailable", 500);
         }
 
         const token = jwt.sign(

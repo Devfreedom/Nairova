@@ -11,7 +11,7 @@ This is a **demo with simulated money only**. Do not integrate real payments, cl
 The intended local layout is:
 
 ```text
-bankApp/
+banking-app/
 ├── AGENTS.md
 ├── banking_api/  # Existing Node.js/Express API (renamed locally from backendLesson_4)
 └── frontend/     # React frontend
