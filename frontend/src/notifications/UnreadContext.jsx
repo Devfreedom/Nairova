@@ -23,7 +23,10 @@ export function UnreadProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    refresh();
+    async function boot() {
+      await refresh();
+    }
+    boot();
   }, [refresh]);
 
   return (

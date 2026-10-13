@@ -91,7 +91,10 @@ export default function Notifications() {
   }, [refresh]);
 
   useEffect(() => {
-    load();
+    async function boot() {
+      await load();
+    }
+    boot();
   }, [load]);
 
   async function handleMarkRead(id) {
