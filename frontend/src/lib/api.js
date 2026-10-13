@@ -101,5 +101,7 @@ export const api = {
   adminUsers: () => request("/api/admin/users"),
   adminCredit: (accountNumber, amount) =>
     request("/api/admin/credit", { method: "POST", body: { accountNumber, amount } }),
+  adminResetPassword: (userId, newPassword, confirmPassword) =>
+    request("/api/admin/reset-password", { method: "POST", body: { userId, newPassword, confirmPassword } }),
   adminTransactions: () => request("/api/admin/transactions"),
 };

@@ -67,8 +67,6 @@ const creditAccount = async (req, res, next) => {
   }
 };
 
-module.exports = { listCustomers, creditAccount, resetCustomerPassword };
-
 // Admin-only: reset a customer's forgotten password.
 // Identifies the target by unambiguous user ID. Only the bcrypt hash is stored;
 // account number, balance, PIN, role, and history are left untouched.
@@ -114,3 +112,5 @@ const resetCustomerPassword = async (req, res, next) => {
     next(err);
   }
 };
+
+module.exports = { listCustomers, creditAccount, resetCustomerPassword };

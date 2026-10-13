@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { parseAmount } from "../lib/amount";
 import { formatDate, formatNaira } from "../lib/format";
-import { Alert, Empty } from "../components/ui";
+import { Alert, Empty, PasswordField } from "../components/ui";
 
 export default function Admin() {
   const [users, setUsers] = useState([]);
@@ -13,6 +13,12 @@ export default function Admin() {
   const [receipt, setReceipt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [resetTarget, setResetTarget] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
 
   async function load() {
     setLoading(true);
