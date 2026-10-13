@@ -104,4 +104,16 @@ export const api = {
   adminResetPassword: (userId, newPassword, confirmPassword) =>
     request("/api/admin/reset-password", { method: "POST", body: { userId, newPassword, confirmPassword } }),
   adminTransactions: () => request("/api/admin/transactions"),
+  notifications: ({ cursor, limit } = {}) => {
+    const params = new URLSearchParams();
+    if (cursor !== undefined && cursor !== null) params.set("cursor", String(cursor));
+    if (limit !== undefined && limit !== null) params.set("limit", String(limit));
+    const qs = params.toString();
+    return request(`/api/notifications${qs ? `?${qs}` : ""}`);
+  },
+  unreadCount: () => request("/api/notifications/unread-count"),
+  markNotificationRead: (id) =>
+    request(`/api/notifications/${encodeURIComponent(id)}/read`, { method: "PATCH" }),
+  markAllNotificationsRead: () =>
+    request("/api/notifications/read-all", { method: "PATCH" }),
 };
