@@ -38,6 +38,20 @@ async function runMigrations(target) {
   const pool = target || getPool();
   const client = await pool.connect();
   try {
+    // Serialize concurrent runners (tests, multi-instance deploys) so two
+    // processes never apply the same migration at the same time.
+    await client.query("SELECT pg_advisory_lock(918273645)");
+    try {
+      return await applyPending(client);
+    } finally {
+      await client.query("SELECT pg_advisory_unlock(918273645)");
+    }
+  } finally {
+    client.release();
+  }
+}
+
+async function applyPending(client) {
     const applied = await appliedVersions(client);
     const files = migrationFiles();
     const newlyApplied = [];
@@ -57,9 +71,6 @@ async function runMigrations(target) {
       newlyApplied.push(version);
     }
     return { applied: [...applied], newlyApplied };
-  } finally {
-    client.release();
-  }
 }
 
 async function getStatus(target) {
