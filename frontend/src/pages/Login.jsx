@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { Alert, Field } from "../components/ui";
+import { Alert, Field, PasswordField } from "../components/ui";
 
 export default function Login() {
   const { login } = useAuth();
@@ -37,7 +37,7 @@ export default function Login() {
         <form onSubmit={onSubmit} className="mt-4 space-y-3">
           <Alert>{error}</Alert>
           <Field label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <Field label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <PasswordField label="Password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           <button className="btn-primary" disabled={busy}>{busy ? "Logging in…" : "Log in"}</button>
         </form>
         <p className="mt-3 text-sm text-slate-500">

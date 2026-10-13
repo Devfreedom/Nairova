@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 export function Alert({ kind = "error", children }) {
   if (!children) return null;
   const styles =

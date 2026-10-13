@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { Alert, Field } from "../components/ui";
+import { Alert, Field, PasswordField } from "../components/ui";
 
 export default function Register() {
   const { register } = useAuth();
@@ -43,7 +43,7 @@ export default function Register() {
           <Alert>{error}</Alert>
           <Field label="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required />
           <Field label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
-          <Field label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
+          <PasswordField label="Password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           <p className="text-xs text-slate-500">Use 6+ characters with upper, lower, number and a symbol.</p>
           <button className="btn-primary" disabled={busy}>{busy ? "Creating…" : "Register"}</button>
         </form>
