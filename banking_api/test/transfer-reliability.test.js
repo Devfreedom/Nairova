@@ -78,7 +78,9 @@ describe("transfer reliability", () => {
     const beforeBob = await balance(bobToken);
     const beforeRows = await transferRowCount();
 
-    const anon = await transfer({ receiverAccountNumber: bobAccount, amount: 500, pin: "1234" }, undefined);
+    const anon = await api(base, "POST", "/api/transfer", {
+      body: { receiverAccountNumber: bobAccount, amount: 500, pin: "1234" },
+    });
     assert.equal(anon.status, 401);
     const forged = await api(base, "POST", "/api/transfer", {
       token: "forged-token",
