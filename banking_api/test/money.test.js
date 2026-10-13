@@ -36,8 +36,8 @@ describe("money movement", () => {
     bobAccount = bobMe.accountNumber;
     bobId = bobMe.id;
 
-    await api(base, "POST", "/api/account/pin/create", { token: aliceToken, body: { pin: "1234" } });
-    await api(base, "POST", "/api/account/pin/create", { token: bobToken, body: { pin: "5678" } });
+    // Registration now sets the transaction PIN directly; no separate
+    // pin/create call is needed.
   });
 
   after(async () => {

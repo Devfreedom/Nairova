@@ -21,10 +21,10 @@ describe("ledger integrity", () => {
     base = baseUrl(server);
 
     await api(base, "POST", "/api/auth/register", {
-      body: { name: "Carol Ledger", email: "carol.ledger@example.com", password: "Carol123!" },
+      body: { name: "Carol Ledger", email: "carol.ledger@example.com", password: "Carol123!", pin: "1111", pinConfirm: "1111" },
     });
     await api(base, "POST", "/api/auth/register", {
-      body: { name: "Dave Ledger", email: "dave.ledger@example.com", password: "Dave12345!" },
+      body: { name: "Dave Ledger", email: "dave.ledger@example.com", password: "Dave12345!", pin: "2222", pinConfirm: "2222" },
     });
 
     adminToken = (await login(base, "test.admin@example.com", "Admin123!")).data.token;

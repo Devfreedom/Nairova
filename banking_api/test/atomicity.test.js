@@ -20,10 +20,10 @@ describe("transfer atomicity", () => {
     base = baseUrl(server);
 
     await api(base, "POST", "/api/auth/register", {
-      body: { name: "Alice Race", email: "alice.race@example.com", password: "Alice123!" },
+      body: { name: "Alice Race", email: "alice.race@example.com", password: "Alice123!", pin: "1234", pinConfirm: "1234" },
     });
     await api(base, "POST", "/api/auth/register", {
-      body: { name: "Bob Race", email: "bob.race@example.com", password: "Bob12345!" },
+      body: { name: "Bob Race", email: "bob.race@example.com", password: "Bob12345!", pin: "5678", pinConfirm: "5678" },
     });
 
     adminToken = (await login(base, "test.admin@example.com", "Admin123!")).data.token;
@@ -33,7 +33,8 @@ describe("transfer atomicity", () => {
     const bobToken = (await login(base, "bob.race@example.com", "Bob12345!")).data.token;
     bobAccount = (await api(base, "GET", "/api/auth/me", { token: bobToken })).data.data.accountNumber;
 
-    await api(base, "POST", "/api/account/pin/create", { token: aliceToken, body: { pin: "1234" } });
+    // Registration now sets the transaction PIN directly; no separate
+    // pin/create call is needed.
     await api(base, "POST", "/api/admin/credit", {
       token: adminToken,
       body: { accountNumber: aliceAccount, amount: 1000 },
