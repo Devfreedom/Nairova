@@ -66,29 +66,12 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
               </li>
             </ul>
           </div>
-          <div className="anim-card relative max-w-sm">
-            <div className="rounded-2xl bg-white p-5 text-slate-900 shadow-2xl">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Balance preview</p>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Illustrative preview</span>
-              </div>
-              <p className="mt-1 text-3xl font-bold">₦••••••</p>
-              <p className="mt-1 font-mono text-xs text-slate-500">•••• ••• ••••</p>
-              <div className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Sample transfer</span>
-                  <span className="font-semibold text-rose-600">−₦••••</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Sample credit</span>
-                  <span className="font-semibold text-emerald-700">+₦••••</span>
-                </div>
-              </div>
-            </div>
-            <div className="absolute -bottom-5 -right-4 rounded-xl bg-mint px-4 py-2 text-sm font-semibold text-ink shadow-lg">
-              Receipt confirmed
-            </div>
-            <p className="mt-7 text-xs text-emerald-100/70">Illustrative preview — not your data.</p>
+          <div className="anim-card relative flex items-center py-4" aria-hidden="true">
+            <span className="font-bold leading-none tracking-tight" style={{ fontSize: "11rem", color: "transparent", WebkitTextStroke: "2px rgba(184, 242, 210, 0.55)" }}>
+              ₦
+            </span>
+            <span className="absolute left-44 top-1/2 h-24 w-24 -translate-y-1/2 rounded-full" style={{ background: "rgba(184, 242, 210, 0.16)" }} />
+            <span className="absolute left-56 top-8 h-10 w-10 rounded-full" style={{ background: "rgba(184, 242, 210, 0.28)" }} />
           </div>
           <p className="max-w-md text-sm leading-relaxed text-emerald-100/90">
             Send simulated funds between classroom accounts, verify recipients, and review every transaction — clearly and calmly.
