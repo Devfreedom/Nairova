@@ -7,6 +7,7 @@
 // Library use (tests): runMigrations(pool), getStatus(pool).
 const fs = require("fs");
 const path = require("path");
+require("dotenv").config();
 const { getPool, closePool } = require("./pool");
 
 const MIGRATIONS_DIR = path.join(__dirname, "migrations");
