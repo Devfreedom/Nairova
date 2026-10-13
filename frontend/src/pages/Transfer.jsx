@@ -256,21 +256,17 @@ export default function Transfer() {
   }
 
   function receiptText() {
-    const fromAcct = receiptTxn?.senderAccountNumber || user?.accountNumber;
-    const lines = [
-      "Nairova transfer receipt",
-      "Simulated transfer between Nairova accounts. Not a real bank.",
-      "",
-      "Status: Success",
-      `Reference: ${result.reference}`,
-      receiptTxn?.timestamp ? `Date: ${lagosTime(receiptTxn.timestamp)} (Africa/Lagos)` : null,
-      `From: ${user?.name || "Your Nairova account"}${fromAcct ? ` (${fromAcct})` : ""}`,
-      `To: ${verified.name} (${verified.accountNumber})`,
-      `Amount: ${formatNaira(parsedAmount)}`,
-      `Fee: ${formatNaira(result.fee ?? 0)}`,
-      result.narration ? `Narration: ${result.narration}` : null,
-    ];
-    return lines.filter(Boolean).join("\n");
+    return buildReceiptText({
+      reference: result.reference,
+      timestamp: receiptTxn?.timestamp,
+      fromName: user?.name,
+      fromAccount: receiptTxn?.senderAccountNumber || user?.accountNumber,
+      toName: verified.name,
+      toAccount: verified.accountNumber,
+      amount: parsedAmount,
+      fee: result.fee,
+      narration: result.narration,
+    });
   }
 
   function handleDownload() {
