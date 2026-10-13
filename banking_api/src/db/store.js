@@ -57,8 +57,11 @@ const TXN_SELECT = `
   FROM transactions t
   LEFT JOIN accounts s_acct ON s_acct.id = t.sender_account_id
   LEFT JOIN users s_usr ON s_usr.id = s_acct.user_id
-  JOIN accounts r_acct ON r_acct.id = t.receiver_account_id
-  JOIN users r_usr ON r_usr.id = r_acct.user_id
+  -- LEFT (not inner): purchase ledger rows (airtime/data) carry a NULL
+  -- receiver_account_id and must still appear in history. Rows with a
+  -- receiver join exactly as before, so existing results are unchanged.
+  LEFT JOIN accounts r_acct ON r_acct.id = t.receiver_account_id
+  LEFT JOIN users r_usr ON r_usr.id = r_acct.user_id
   LEFT JOIN users a_usr ON a_usr.id = t.admin_user_id
 `;
 
