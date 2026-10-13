@@ -10,6 +10,8 @@ export default function Register() {
   const [name, setName] = useState("");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [pin, setPin] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -28,9 +30,17 @@ export default function Register() {
       setError("Password must be at least 6 characters.");
       return;
     }
+    if (!/^\d{4}$/.test(pin)) {
+      setError("Choose a 4-digit transaction PIN.");
+      return;
+    }
+    if (pinConfirm !== pin) {
+      setError("Transaction PIN confirmation does not match.");
+      return;
+    }
     setBusy(true);
     try {
-      await register(name.trim(), identifier.trim(), password);
+      await register(name.trim(), identifier.trim(), password, pin, pinConfirm);
       navigate("/");
     } catch (err) {
       setError(err.message);
@@ -74,7 +84,41 @@ export default function Register() {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <p className="t-muted text-xs">Use 6+ characters with upper, lower, number and a symbol. Signups always create ordinary customer accounts.</p>
+        <div className="grid gap-5 min-[480px]:grid-cols-2 min-[480px]:gap-4">
+          <label className="block" htmlFor="register-pin">
+            <span className="label">Transaction PIN</span>
+            <input
+              id="register-pin"
+              name="registerPin"
+              className="field"
+              type="password"
+              autoComplete="new-password"
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="4 digits"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+              required
+            />
+          </label>
+          <label className="block" htmlFor="register-pin-confirm">
+            <span className="label">Confirm PIN</span>
+            <input
+              id="register-pin-confirm"
+              name="registerPinConfirm"
+              className="field"
+              type="password"
+              autoComplete="new-password"
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="Repeat PIN"
+              value={pinConfirm}
+              onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, ""))}
+              required
+            />
+          </label>
+        </div>
+        <p className="t-muted text-xs">Use 6+ characters with upper, lower, number and a symbol. Your 4-digit PIN approves transfers. Signups always create ordinary customer accounts.</p>
         <button className="btn-primary" disabled={busy}>{busy ? "Creating…" : "Create account"}</button>
       </form>
     </AuthLayout>

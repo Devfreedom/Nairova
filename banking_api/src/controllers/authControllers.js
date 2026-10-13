@@ -16,15 +16,18 @@ function jwtSecretOrThrow() {
 
 const register = async (req, res, next) => {
     try {
-        const { name, email, phone, password } = req.body;
+        const { name, email, phone, password, pin } = req.body;
 
         // Public registration always creates an ordinary user.
         // The role field from the client is intentionally ignored.
         // Identifier normalization happens in validateRegister; uniqueness is
-        // enforced by the database constraints.
+        // enforced by the database constraints. The PIN was validated
+        // (4 digits, confirmed) by validateRegister; only its bcrypt hash
+        // is stored. The raw PIN is never persisted, returned, or logged.
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const created = await registerUser({ name, email, phone, passwordHash: hashedPassword });
+        const hashedPin = await bcrypt.hash(String(pin), 10);
+        const created = await registerUser({ name, email, phone, passwordHash: hashedPassword, pinHash: hashedPin });
 
         res.status(201).json({
             success: true,

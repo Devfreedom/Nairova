@@ -198,7 +198,9 @@ async function findUserById(id, client) {
 // Registration creates the user and its account atomically.
 // Either email or phone (canonical E.164) must be provided; uniqueness for
 // both is enforced by partial unique indexes in migration 002.
-async function registerUser({ name, email, phone, passwordHash }) {
+// A transaction PIN hash is mandatory for new accounts (Phase 2A); legacy
+// PIN-less rows predate this requirement and keep pin_hash NULL.
+async function registerUser({ name, email, phone, passwordHash, pinHash }) {
   const pool = getPool();
   const client = await pool.connect();
   try {
@@ -206,9 +208,9 @@ async function registerUser({ name, email, phone, passwordHash }) {
     let userId;
     try {
       const { rows } = await client.query(
-        `INSERT INTO users (name, email, phone, password_hash, role)
-         VALUES ($1, $2, $3, $4, 'user') RETURNING id`,
-        [name, email || null, phone || null, passwordHash]
+        `INSERT INTO users (name, email, phone, password_hash, pin_hash, role)
+         VALUES ($1, $2, $3, $4, $5, 'user') RETURNING id`,
+        [name, email || null, phone || null, passwordHash, pinHash || null]
       );
       userId = rows[0].id;
     } catch (err) {
@@ -247,7 +249,7 @@ async function registerUser({ name, email, phone, passwordHash }) {
       throw new AppError("Could not allocate an account number. Please try again.", 500);
     }
     await client.query("COMMIT");
-    return { id: userId, name, email: email || null, phone: phone || null, role: "user", balance: 0, pin: null, accountNumber };
+    return { id: userId, name, email: email || null, phone: phone || null, role: "user", balance: 0, pinSet: true, accountNumber };
   } catch (err) {
     try {
       await client.query("ROLLBACK");

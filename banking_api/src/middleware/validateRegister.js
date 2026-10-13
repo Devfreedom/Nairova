@@ -3,7 +3,7 @@ const { PASSWORD_REGEX, PASSWORD_REQUIREMENTS } = require("../utils/password");
 const { classifyIdentifier } = require("../utils/identifier");
 
 const validateRegister = (req, res, next) => {
-  const { name, email, identifier, phone, password } = req.body || {};
+  const { name, email, identifier, phone, password, pin, pinConfirm } = req.body || {};
   const errors = [];
 
   if (typeof name !== "string" || name.trim() === "") {
@@ -28,6 +28,17 @@ const validateRegister = (req, res, next) => {
     errors.push(PASSWORD_REQUIREMENTS);
   }
 
+  // Mandatory transaction PIN: exactly 4 digits, entered twice identically.
+  // Only the field names appear in errors; the values are never echoed.
+  if (typeof pin !== "string" || !/^\d{4}$/.test(pin)) {
+    errors.push("Transaction PIN must be exactly 4 digits");
+  }
+  if (typeof pinConfirm !== "string" || !/^\d{4}$/.test(pinConfirm)) {
+    errors.push("Transaction PIN confirmation must be exactly 4 digits");
+  } else if (typeof pin === "string" && /^\d{4}$/.test(pin) && pinConfirm !== pin) {
+    errors.push("Transaction PIN confirmation does not match");
+  }
+
   // NOTE: public registration never accepts a client-supplied role.
   // All public signups create ordinary users; admins are provisioned
   // server-side via the ADMIN_* environment bootstrap.
@@ -40,6 +51,7 @@ const validateRegister = (req, res, next) => {
   req.body.name = name.trim();
   req.body.email = classified.kind === "email" ? classified.value : null;
   req.body.phone = classified.kind === "phone" ? classified.value : null;
+  req.body.pin = pin;
 
   next();
 };
