@@ -132,6 +132,109 @@ async function completeIdempotencyKey(client, { key, code, body }) {
   );
 }
 
+// ---- In-app notifications (Phase 5) --------------------------------------
+// Notification rows are written with the caller's open transaction, right
+// after the ledger insert they describe, so they commit or roll back with
+// the money movement itself. Replays return before any insert, and the
+// (user_id, dedupe_key) unique constraint backstops any double execution.
+// Messages carry amounts, references, and counterpart account numbers only
+// (already visible to both parties in history) — never personal names.
+
+// Backend naira rendering for notification copy ("₦1,500.00").
+function nairaText(amountText) {
+  return `₦${Number(amountText).toLocaleString("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+async function createNotification(client, { userId, eventType, title, message, reference, destination, dedupeKey }) {
+  await client.query(
+    `INSERT INTO notifications (user_id, event_type, title, message, reference, destination, dedupe_key)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (user_id, dedupe_key) DO NOTHING`,
+    [userId, eventType, title, message, reference || null, destination || null, dedupeKey]
+  );
+}
+
+function mapNotification(r) {
+  return {
+    id: r.id,
+    eventType: r.event_type,
+    title: r.title,
+    message: r.message,
+    reference: r.reference || null,
+    destination: r.destination || null,
+    createdAt: r.created_at,
+    readAt: r.read_at || null,
+    read: r.read_at !== null && r.read_at !== undefined,
+  };
+}
+
+async function listNotifications(userId, { limit = 20, cursor = null } = {}) {
+  const params = [userId];
+  let cursorClause = "";
+  if (cursor !== null) {
+    params.push(cursor);
+    cursorClause = `AND n.id < $${params.length}`;
+  }
+  params.push(limit + 1);
+  const { rows } = await getPool().query(
+    `SELECT n.id, n.event_type, n.title, n.message, n.reference, n.destination, n.created_at, n.read_at
+     FROM notifications n
+     WHERE n.user_id = $1 ${cursorClause}
+     ORDER BY n.created_at DESC, n.id DESC
+     LIMIT $${params.length}`,
+    params
+  );
+  const items = rows.map(mapNotification);
+  const hasMore = items.length > limit;
+  const page = hasMore ? items.slice(0, limit) : items;
+  return {
+    items: page,
+    nextCursor: hasMore ? page[page.length - 1].id : null,
+  };
+}
+
+async function unreadNotificationCount(userId) {
+  const { rows } = await getPool().query(
+    `SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL`,
+    [userId]
+  );
+  return rows[0].count;
+}
+
+// Returns { missing:true } when the id is unknown or owned by someone else
+// (both map to 404 so ids are not oracle-able), { already:true } when the
+// row is already read, otherwise marks it read and returns the row.
+async function markNotificationRead(userId, id) {
+  const { rows } = await getPool().query(
+    `SELECT id, user_id, event_type, title, message, reference, destination, created_at, read_at
+     FROM notifications WHERE id = $1`,
+    [id]
+  );
+  if (!rows.length || rows[0].user_id !== userId) {
+    return { missing: true };
+  }
+  if (rows[0].read_at) {
+    return { already: true, notification: mapNotification(rows[0]) };
+  }
+  const updated = await getPool().query(
+    `UPDATE notifications SET read_at = now() WHERE id = $1
+     RETURNING id, event_type, title, message, reference, destination, created_at, read_at`,
+    [id]
+  );
+  return { notification: mapNotification(updated.rows[0]) };
+}
+
+async function markAllNotificationsRead(userId) {
+  const { rowCount } = await getPool().query(
+    `UPDATE notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL`,
+    [userId]
+  );
+  return { updated: rowCount };
+}
+
 // Inserts one ledger row with a backend-generated unique reference.
 // Retries with a fresh reference on the (unlikely) random collision.
 async function insertLedgerRow(client, { type, senderId, receiverId, adminId, amountText, narration, feeText }) {
