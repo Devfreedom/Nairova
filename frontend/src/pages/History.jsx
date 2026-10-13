@@ -65,7 +65,7 @@ export default function History() {
                 const incoming = sign >= 0;
                 return (
                   <li key={t.id}>
-                    {showGroup && (
+                    {showGroup && group && (
                       <p className="t-muted pt-3 text-xs font-semibold uppercase tracking-wide">{group}</p>
                     )}
                     <div className="flex items-center justify-between gap-3 py-3">
