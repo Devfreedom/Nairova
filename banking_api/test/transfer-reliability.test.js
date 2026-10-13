@@ -150,6 +150,28 @@ describe("transfer reliability", () => {
     assert.equal(await balance(aliceToken), beforeAlice - 1100 - 1300);
   });
 
+  it("rejects a missing PIN without moving money", async () => {
+    const beforeAlice = await balance(aliceToken);
+    const beforeRows = await transferRowCount();
+    const res = await transfer({ receiverAccountNumber: bobAccount, amount: 500, idempotencyKey: randomUUID() });
+    assert.equal(res.status, 400);
+    assert.equal(await balance(aliceToken), beforeAlice);
+    assert.equal(await transferRowCount(), beforeRows);
+  });
+
+  it("accepts narration at exactly 140 characters and records it", async () => {
+    const note = "n".repeat(140);
+    const res = await transfer({
+      receiverAccountNumber: bobAccount, amount: 600, pin: "1234", narration: note, idempotencyKey: randomUUID(),
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.data.narration, note);
+    const txns = (await api(base, "GET", "/api/account/transactions", { token: aliceToken })).data.data;
+    const recorded = txns.find((t) => t.reference === res.data.reference);
+    assert.ok(recorded, "140-char narration must round-trip through history");
+    assert.equal(recorded.narration, note);
+  });
+
   it("converges a real commit plus lost response into one transfer on retry", async () => {
     // A genuine commit through the production store path (the same function
     // the transfer endpoint calls), then the HTTP retry the frontend would
