@@ -6,6 +6,7 @@ const AppError = require("../utils/AppError");
 const { getPool } = require("./pool");
 
 const DUPLICATE_EMAIL_MESSAGE = "Email is already registered";
+const DUPLICATE_PHONE_MESSAGE = "Phone number is already registered";
 
 const toNum = (v) => Number(v);
 
@@ -13,7 +14,8 @@ function mapUserAccount(r) {
   return {
     id: r.user_id,
     name: r.name,
-    email: r.email,
+    email: r.email || null,
+    phone: r.phone || null,
     role: r.role,
     passwordHash: r.password_hash,
     pinHash: r.pin_hash,
