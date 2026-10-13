@@ -1,43 +1,36 @@
 const bcrypt = require("bcrypt");
 
-const { users, getNextId } = require("../data/users");
+const { bootstrapAdminRecord } = require("../db/store");
 
-function generateAccountNumber() {
-  let accountNumber;
-  do {
-    accountNumber = Math.floor(1000000000 + Math.random() * 9000000000).toString();
-  } while (users.find((user) => user.accountNumber === accountNumber));
-  return accountNumber;
-}
-
-// Idempotent: only creates the admin if ADMIN_EMAIL is configured and not already present.
-// Never hardcodes credentials; all values come from environment configuration.
+// Idempotent: creates the admin only when ADMIN_EMAIL/ADMIN_PASSWORD are
+// configured and no user with that email exists. Never hardcodes credentials;
+// all values come from environment configuration.
+//
+// Conflict policy: if the configured email already belongs to an ordinary
+// user, the bootstrap does NOT promote them. It logs a warning and leaves the
+// row untouched. To resolve, either change ADMIN_EMAIL or promote the account
+// explicitly in the database, e.g.:
+//   UPDATE users SET role = 'admin' WHERE email = '<the-email>';
 async function bootstrapAdmin() {
   const { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME } = process.env;
   if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
     return null;
   }
   const email = ADMIN_EMAIL.trim().toLowerCase();
-  const existing = users.find((u) => u.email === email);
-  if (existing) {
-    if (existing.role !== "admin") {
-      existing.role = "admin";
-    }
-    return existing;
-  }
   const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
-  const admin = {
-    id: getNextId(),
+  const result = await bootstrapAdminRecord({
     name: (ADMIN_NAME || "Demo Administrator").trim(),
     email,
-    password: hashedPassword,
-    role: "admin",
-    balance: 0,
-    pin: null,
-    accountNumber: generateAccountNumber(),
-  };
-  users.push(admin);
-  return admin;
+    passwordHash: hashedPassword,
+  });
+  if (result.conflict) {
+    console.warn(
+      `Admin bootstrap skipped: ${email} already exists as a non-admin user. ` +
+        "It was NOT promoted. Resolve by changing ADMIN_EMAIL or promoting the row explicitly."
+    );
+    return null;
+  }
+  return result.user;
 }
 
 module.exports = { bootstrapAdmin };
