@@ -6,6 +6,8 @@ const { normalizePhone, isValidPhone } = require("../utils/identifier");
 const {
   getCatalogue,
   isSupportedNetwork,
+  getBundle,
+  BUNDLES,
   NETWORKS,
   AIRTIME_MIN_AMOUNT,
   AIRTIME_MAX_AMOUNT,
@@ -173,13 +175,79 @@ const purchaseAirtime = async (req, res, next) => {
   }
 };
 
-module.exports = {
-  getTopupCatalogue,
-  assertExactFields,
-  validateNetwork,
-  validateMsisdn,
-  validateAirtimeAmount,
-  validateKey,
-  validatePinOwner,
-  purchaseAirtime,
+// Data is priced strictly from the server catalogue: the client selects a
+// (network, bundleCode) pair and the charge is the catalogue price. Any
+// client-supplied amount or price is rejected outright by the field
+// allowlist above, never read.
+const purchaseData = async (req, res, next) => {
+  try {
+    assertExactFields(
+      req.body,
+      ["recipientMsisdn", "network", "bundleCode", "pin", "idempotencyKey"],
+      "data"
+    );
+    const {
+      recipientMsisdn: rawMsisdn,
+      network: rawNetwork,
+      bundleCode: rawCode,
+      pin,
+      idempotencyKey: rawKey,
+    } = req.body || {};
+
+    const network = validateNetwork(rawNetwork);
+    const msisdn = validateMsisdn(rawMsisdn);
+
+    const code = typeof rawCode === "string" ? rawCode.trim() : "";
+    if (code === "") {
+      throw new AppError("Bundle code is required", 400);
+    }
+    const bundle = getBundle(network, code);
+    if (!bundle) {
+      const elsewhere = BUNDLES.find((b) => b.code === code);
+      if (elsewhere) {
+        throw new AppError(`Bundle ${code} belongs to ${elsewhere.network}, not ${network}`, 400);
+      }
+      throw new AppError(`Unknown bundle code for ${network}`, 400);
+    }
+    const priceText = bundle.price.toFixed(2);
+
+    const idempotencyKey = validateKey(rawKey);
+    const buyer = await validatePinOwner(req, pin);
+
+    if (buyer.balance < bundle.price) {
+      throw new AppError("Insufficient balance", 400);
+    }
+
+    const result = await purchaseTopup({
+      userId: buyer.id,
+      kind: "data",
+      network,
+      msisdn,
+      amountText: priceText,
+      narration: null,
+      bundle: { code: bundle.code, name: bundle.name, allowance: bundle.allowance, validity: bundle.validity },
+      endpoint: "POST /api/topup/data",
+      idempotencyKey,
+      fingerprint: fingerprint([
+        "topup_data",
+        String(buyer.id),
+        priceText,
+        network,
+        msisdn,
+        bundle.code,
+        "0.00",
+      ]),
+      displayAmount: bundle.price,
+    });
+
+    if (result.replay) {
+      return res.status(result.code).json(result.body);
+    }
+    if (result.error) {
+      throw new AppError(result.error.message, result.error.status);
+    }
+    res.status(result.status).json(result.body);
+  } catch (err) {
+    next(err);
+  }
 };
