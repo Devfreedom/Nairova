@@ -8,6 +8,7 @@ const accountRoutes = require("./src/routes/accountsRoutes");
 const transferRoutes = require("./src/routes/transferRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const notificationsRoutes = require("./src/routes/notificationsRoutes");
+const topupRoutes = require("./src/routes/topupRoutes");
 const errorHandler = require("./src/middleware/errorHandler")
 const AppError = require("./src/utils/AppError");
 const { checkConnection } = require("./src/db/pool");
@@ -52,6 +53,7 @@ app.use('/api/account', accountRoutes);
 app.use('/api/transfer', transferRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/topup', topupRoutes);
 
 app.use((req, res, next) => {
     next(new AppError(`Route ${req.originalUrl} not found`, 404));
