@@ -475,6 +475,16 @@ async function depositToAccount(userId, amountText, { idempotencyKey, fingerprin
       type: "deposit", senderId: null, receiverId: accountId, adminId: null,
       amountText, narration: null, feeText: "0.00",
     });
+    // Same transaction: no notification without the committed deposit.
+    await createNotification(client, {
+      userId,
+      eventType: "deposit_received",
+      title: "Deposit received",
+      message: `Your simulated deposit of ${nairaText(amountText)} is available. Ref ${ledger.reference}.`,
+      reference: ledger.reference,
+      destination: "/",
+      dedupeKey: `deposit_received:${ledger.reference}`,
+    });
     const body = {
       success: true,
       message: `Successfully deposited ${displayAmount} (simulated demo funds)`,
@@ -550,6 +560,18 @@ async function adminCredit({ adminId, accountNumber, amountText, narration, idem
     const ledger = await insertLedgerRow(client, {
       type: "admin_credit", senderId: null, receiverId: recipient.id, adminId,
       amountText, narration: narration || null, feeText: "0.00",
+    });
+    // Same transaction: the recipient is notified only if the credit commits.
+    await createNotification(client, {
+      userId: recipient.user_id,
+      eventType: "admin_credit_received",
+      title: "Simulated credit received",
+      message: `Nairova added ${nairaText(amountText)} in simulated funds to your account${
+        narration ? ` — ${narration}` : ""
+      }. Ref ${ledger.reference}.`,
+      reference: ledger.reference,
+      destination: "/",
+      dedupeKey: `admin_credit_received:${ledger.reference}`,
     });
     const transaction = {
       id: ledger.id,
@@ -671,6 +693,26 @@ async function transferFunds({ senderUserId, receiverAccountNumber, amountText, 
       type: "transfer", senderId: sender.id, receiverId: receiver.id, adminId: null,
       amountText, narration: narration || null, feeText: "0.00",
     });
+    // Same transaction: both parties are notified only if the transfer commits.
+    // Counterpart account numbers are already visible to both sides in history.
+    await createNotification(client, {
+      userId: senderUserId,
+      eventType: "transfer_sent",
+      title: "Transfer sent",
+      message: `You sent ${nairaText(amountText)} to account ${receiver.account_number}. Ref ${ledger.reference}.`,
+      reference: ledger.reference,
+      destination: "/history",
+      dedupeKey: `transfer_sent:${ledger.reference}`,
+    });
+    await createNotification(client, {
+      userId: receiver.user_id,
+      eventType: "transfer_received",
+      title: "Transfer received",
+      message: `You received ${nairaText(amountText)} from account ${sender.account_number}. Ref ${ledger.reference}.`,
+      reference: ledger.reference,
+      destination: "/history",
+      dedupeKey: `transfer_received:${ledger.reference}`,
+    });
     const body = {
       success: true,
       message: `Successfully transferred ${displayAmount} to ${receiver.name}`,
@@ -773,4 +815,8 @@ module.exports = {
   adminCredit,
   transferFunds,
   bootstrapAdminRecord,
+  listNotifications,
+  unreadNotificationCount,
+  markNotificationRead,
+  markAllNotificationsRead,
 };
