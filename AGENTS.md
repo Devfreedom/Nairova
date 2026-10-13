@@ -35,7 +35,7 @@ Inspect the actual workspace before making changes; the layout above is based on
 
 ## 4. Backend baseline and existing API
 
-The public repository currently uses Node.js, Express, CommonJS, JWT, bcrypt, and in-memory arrays in `src/data/users.js`. Verify the local source before relying on these details.
+The project uses Node.js, Express, CommonJS, JWT, bcrypt, and PostgreSQL via the official `pg` driver with parameterized queries. All users, accounts, balances, and transactions persist in PostgreSQL (`users`, `accounts`, `transactions` tables plus a `schema_migrations` history table). There is no in-memory fallback: the server refuses to start without `DATABASE_URL` and a fully migrated schema. Verify the local source before relying on these details.
 
 The current public code includes these routes:
 
@@ -63,7 +63,7 @@ The public branch does not currently show a completed admin controller or an adm
 - Credit and transfer actions must be authorized by the backend and recorded. An admin-credit record should include the admin identity, recipient, amount, operation type, timestamp, and status.
 - Ensure middleware and error handlers are ordered correctly; an earlier error handler must not accidentally prevent the shared handler from running.
 - Never return password hashes, PIN hashes, JWT secrets, or internal stack traces to clients.
-- The current public implementation stores users and transactions in memory. Be honest about this: records reset when the process restarts. Do not claim persistent storage or silently add a database migration as part of a frontend task. If persistence is added later, design it explicitly and test it separately.
+- Persistence is PostgreSQL. Records survive restarts. Never reintroduce an in-memory array as a source of truth, never silently fall back to one, and never claim old in-memory demo records were migrated — they were not. Schema changes go through versioned migrations in `src/db/migrations/` (applied with `npm run db:migrate`, inspected with `npm run db:status`); migrations must be ordered, reproducible, rerunnable, and non-destructive. Money arithmetic belongs in SQL (`NUMERIC(15,2)`); never compute persisted balances with JavaScript floats. Transfers and admin credits must run as single database transactions with row-level locking (`SELECT ... FOR UPDATE`, consistent lock order, conditional debit) so concurrent requests cannot overdraw an account.
 
 ## 5. Frontend requirements
 
@@ -102,7 +102,7 @@ Required customer experience:
 
 ## 7. Testing and acceptance criteria
 
-Run the available scripts from the correct project directories. If no automated tests exist, add focused tests for the most important logic and clearly distinguish automated tests from manual checks.
+Run the available scripts from the correct project directories. Backend automated tests run with `npm test` from `banking_api/` against the separate `TEST_DATABASE_URL` database (the runner refuses a missing or identical test database); frontend parser tests run with `npm run test:parser` from `frontend/`. Clearly distinguish automated tests from manual checks.
 
 Before calling the demo ready, verify:
 
@@ -120,6 +120,6 @@ Before calling the demo ready, verify:
 ## 8. Environment and reporting
 
 - Read `.env` only as needed; never reveal its contents. Keep real `.env` files untracked and use placeholders in examples.
-- Document all required environment variable names without including real values. At minimum, check the JWT secret and frontend API base URL against the actual implementation.
-- Do not claim that the project is production-grade or safe for real money. Report remaining limitations, including in-memory storage if it remains.
+- Document all required environment variable names without including real values. At minimum, check the JWT secret, `DATABASE_URL`/`TEST_DATABASE_URL`, and frontend API base URL against the actual implementation.
+- Do not claim that the project is production-grade or safe for real money. Report remaining limitations.
 - Do not commit or push unless the user explicitly requests it.
