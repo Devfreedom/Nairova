@@ -48,9 +48,22 @@ describe("transfer atomicity", () => {
     return (await api(base, "GET", "/api/account/balance", { token })).data.balance;
   }
 
-  async function transferCount() {
+  async function accountIdByEmail(email) {
     const p = await testPool();
-    const { rows } = await p.query("SELECT COUNT(*)::int AS n FROM transactions WHERE type = 'transfer'");
+    const { rows } = await p.query(
+      `SELECT a.id FROM accounts a JOIN users u ON u.id = a.user_id WHERE u.email = $1`,
+      [email]
+    );
+    return rows[0].id;
+  }
+
+  async function transferCount() {
+    const senderAccountId = await accountIdByEmail("alice.race@example.com");
+    const p = await testPool();
+    const { rows } = await p.query(
+      "SELECT COUNT(*)::int AS n FROM transactions WHERE type = 'transfer' AND sender_account_id = $1",
+      [senderAccountId]
+    );
     return rows[0].n;
   }
 
@@ -96,7 +109,10 @@ describe("transfer atomicity", () => {
       ["alice.race@example.com"]
     );
     assert.equal(Number(rows[0].balance), expectedBalance);
-    const counted = await fresh.query("SELECT COUNT(*)::int AS n FROM transactions WHERE type = 'transfer'");
+    const counted = await fresh.query(
+      "SELECT COUNT(*)::int AS n FROM transactions WHERE type = 'transfer' AND sender_account_id = $1",
+      [await accountIdByEmail("alice.race@example.com")]
+    );
     assert.equal(counted.rows[0].n, expectedCount);
   });
 });
