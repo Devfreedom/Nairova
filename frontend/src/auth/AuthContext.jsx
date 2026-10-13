@@ -32,17 +32,18 @@ export function AuthProvider({ children }) {
     boot();
   }, [logout]);
 
-  const login = useCallback(async (email, password) => {
-    const res = await api.login({ email, password });
+  // identifier is an email address or a Nigerian phone number.
+  const login = useCallback(async (identifier, password) => {
+    const res = await api.login({ identifier, password });
     setToken(res.token);
     const me = await api.me();
     setUser(me.data);
     return me.data;
   }, []);
 
-  const register = useCallback(async (name, email, password) => {
-    await api.register({ name, email, password });
-    return login(email, password);
+  const register = useCallback(async (name, identifier, password) => {
+    await api.register({ name, identifier, password });
+    return login(identifier, password);
   }, [login]);
 
   const refreshUser = useCallback(async () => {
@@ -63,4 +64,10 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
+}
+
+// Display helper: prefer email, fall back to phone for phone-only accounts.
+export function userIdentifier(user) {
+  if (!user) return "";
+  return user.email || user.phone || "";
 }
