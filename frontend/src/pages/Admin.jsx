@@ -237,6 +237,50 @@ export default function Admin() {
         )}
       </div>
 
+      {resetTarget && (
+        <div className="card border-amber-200" role="dialog" aria-modal="false" aria-labelledby="reset-password-heading">
+          <h2 id="reset-password-heading" className="font-semibold">Reset customer password</h2>
+          <p className="mt-1 text-sm text-slate-600" aria-live="polite">
+            Customer: <strong>{resetTarget.name}</strong> ({resetTarget.email}) · acct{" "}
+            <span className="font-mono">{resetTarget.accountNumber}</span>
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Only the password changes. Balance, PIN, account number, and history are untouched.
+          </p>
+          <form onSubmit={onResetPassword} className="mt-3 space-y-3">
+            <Alert>{resetError}</Alert>
+            <Alert kind="success">{resetSuccess}</Alert>
+            <PasswordField
+              label="New password"
+              id="reset-new-password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              disabled={resetBusy}
+              required
+            />
+            <PasswordField
+              label="Confirm new password"
+              id="reset-confirm-password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={resetBusy}
+              required
+            />
+            <p className="text-xs text-slate-500">Use 6+ characters with upper, lower, number and a symbol.</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" className="btn-primary w-auto px-5" disabled={resetBusy}>
+                {resetBusy ? "Resetting…" : "Reset password"}
+              </button>
+              <button type="button" className="btn-secondary" disabled={resetBusy} onClick={closeReset}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       <div className="card">
         <h2 className="font-semibold">Recorded activity</h2>
         {txns.length === 0 ? (
