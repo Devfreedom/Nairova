@@ -10,7 +10,7 @@
 **/dist/
 **/build/
 **/coverage/
-
+.env
 # Logs
 *.log
 npm-debug.log*
