@@ -191,7 +191,7 @@ async function setPinHash(userId, pinHash) {
 
 async function listUsers() {
   const { rows } = await getPool().query(
-    `SELECT u.id, u.name, u.email, u.role, u.created_at,
+    `SELECT u.id, u.name, u.email, u.phone, u.role, u.created_at,
             a.account_number, a.balance, a.currency
      FROM users u JOIN accounts a ON a.user_id = u.id
      ORDER BY u.id`
@@ -199,7 +199,8 @@ async function listUsers() {
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
-    email: r.email,
+    email: r.email || null,
+    phone: r.phone || null,
     role: r.role,
     balance: toNum(r.balance),
     currency: r.currency,
@@ -479,6 +480,8 @@ async function bootstrapAdminRecord({ name, email, passwordHash }) {
 
 module.exports = {
   findUserByEmail,
+  findUserByPhone,
+  findUserByIdentifier,
   findUserById,
   registerUser,
   updatePasswordHash,
