@@ -40,7 +40,7 @@ Edit `.env` and set at minimum:
 | `JWT_EXPIRES_IN` | Token lifetime, e.g. `1h` |
 | `FRONTEND_ORIGIN` | Allowed frontend origin(s), comma-separated |
 | `DATABASE_URL` | Application database connection string (**required**) |
-| `PGSSL` | Empty for local dev; `true` or `verify` for hosted providers |
+| `PGSSL` | Empty for local dev and Render **Internal** URLs (private network, TLS not required); `true` for **External**/public-hosted URLs (TLS without CA verification); `verify` for full verification. When set, any `sslmode`/`sslcert`/`sslkey`/`sslrootcert` parameters in the URL are ignored in favor of this setting. |
 | `TEST_DATABASE_URL` | Separate test database (**required for tests**, must differ from `DATABASE_URL`) |
 | `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Server-controlled demo-admin bootstrap |
 
@@ -118,6 +118,10 @@ environment variables.
      ```
   3. Only `db:status` showing zero pending is acceptable before sending traffic.
 - The migration runner is advisory-locked and rerunnable; it never drops data.
+- Alternative for the very first deploy: run the same two commands from a laptop
+  against the **External** URL with `PGSSL=true`
+  (`DATABASE_URL='<external-url>' PGSSL=true npm run db:migrate` from `banking_api/`);
+  allowlist your IP under the database's Access Control tab first.
 
 ### 2. Backend — Render Web Service
 
@@ -132,7 +136,7 @@ environment variables.
   | `JWT_EXPIRES_IN` | `1h` |
   | `FRONTEND_ORIGIN` | `https://<your-app>.vercel.app` (exact Vercel URL, no trailing slash) |
   | `DATABASE_URL` | The Render **Internal Database URL** |
-  | `PGSSL` | `true` (Render Postgres requires SSL) |
+  | `PGSSL` | Leave empty (Render's private network does not require TLS for internal URLs; `true` also works but adds needless handshake overhead). Use `true` only with the **External** URL (e.g. migrations from a laptop). |
   | `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Demo-admin bootstrap (created idempotently on boot) |
   (`PORT` is injected by Render; the server listens on `0.0.0.0`.)
 - The server refuses to boot on missing `DATABASE_URL`, unreachable DB, or pending

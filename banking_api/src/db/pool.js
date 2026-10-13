@@ -13,13 +13,31 @@ function sslConfig() {
   return undefined;
 }
 
-function createPool(connectionString) {
+function stripSslParams(connectionString) {
+  const idx = connectionString.indexOf("?");
+  if (idx === -1) return connectionString;
+  const base = connectionString.slice(0, idx);
+  const kept = connectionString
+    .slice(idx + 1)
+    .split("&")
+    .filter((pair) => {
+      const key = pair.split("=")[0].toLowerCase();
+      return key !== "sslmode" && key !== "sslcert" && key !== "sslkey" && key !== "sslrootcert";
+    });
+  return kept.length ? `${base}?${kept.join("&")}` : base;
+}
   if (!connectionString) {
     throw new Error(
       "Missing database configuration. Set DATABASE_URL to a PostgreSQL connection string."
     );
   }
-  const p = new Pool({ connectionString, ssl: sslConfig() });
+  const ssl = sslConfig();
+  // node-postgres silently REPLACES the `ssl` config object when the connection
+  // string itself carries sslmode/sslcert/sslkey/sslrootcert parameters (e.g.
+  // Render's External URL ships `?sslmode=require`). When PGSSL explicitly
+  // selects a mode, strip those parameters so the explicit choice wins.
+  const sanitized = ssl === undefined ? connectionString : stripSslParams(connectionString);
+  const p = new Pool({ connectionString: sanitized, ssl });
   // Never log connection strings, passwords, or query parameters here.
   p.on("error", (err) => {
     console.error("PostgreSQL pool error:", err && err.message ? err.message : err);
