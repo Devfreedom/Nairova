@@ -992,6 +992,133 @@ async function transferFunds({ senderUserId, receiverAccountNumber, amountText, 
   }
 }
 
+// Atomic simulated top-up purchase (airtime/data). Mirrors transferFunds:
+// single-row lock (only the buyer's account moves), conditional debit so
+// concurrent purchases cannot overdraw, ledger + purchase detail +
+// notification + idempotency completion in one transaction. The ledger row
+// is the authoritative money record (receiver NULL: no telecom
+// counterparty account exists); the purchases row carries the simulated
+// telecom metadata plus a bundle snapshot for data. Rolls back everything
+// on any failure. `bundle` is null for airtime or
+// { code, name, allowance, validity } for data.
+async function purchaseTopup({ userId, kind, network, msisdn, amountText, narration, bundle, endpoint, idempotencyKey, fingerprint, displayAmount }) {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    if (idempotencyKey) {
+      const claim = await claimIdempotencyKey(client, {
+        key: idempotencyKey, userId, endpoint, fingerprint,
+      });
+      if (claim.replay) {
+        await client.query("ROLLBACK");
+        return { replay: true, code: claim.code, body: claim.body };
+      }
+      if (claim.conflict) {
+        await client.query("ROLLBACK");
+        return { error: claim.conflict };
+      }
+    }
+    const buyerRes = await client.query(
+      `SELECT a.id, a.account_number, a.balance FROM accounts a WHERE a.user_id = $1 FOR UPDATE`,
+      [userId]
+    );
+    if (!buyerRes.rows.length) {
+      await client.query("ROLLBACK");
+      return { error: { message: "Account not found", status: 404 } };
+    }
+    const buyer = buyerRes.rows[0];
+
+    // Conditional debit: succeeds only when funds remain sufficient.
+    const debited = await client.query(
+      `UPDATE accounts SET balance = balance - $1
+       WHERE id = $2 AND balance >= $1 RETURNING balance`,
+      [amountText, buyer.id]
+    );
+    if (!debited.rowCount) {
+      await client.query("ROLLBACK");
+      return { error: { message: "Insufficient balance", status: 400 } };
+    }
+    // Purchase fee is zero; still recorded so receipts and history show the
+    // real applied fee instead of inventing one later.
+    const ledger = await insertLedgerRow(client, {
+      type: kind, senderId: buyer.id, receiverId: null, adminId: null,
+      amountText, narration: narration || null, feeText: "0.00",
+    });
+    await client.query(
+      `INSERT INTO purchases (transaction_id, kind, network, recipient_msisdn,
+        bundle_code, bundle_name, allowance, validity, amount)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        ledger.id, kind, network, msisdn,
+        bundle ? bundle.code : null,
+        bundle ? bundle.name : null,
+        bundle ? bundle.allowance : null,
+        bundle ? bundle.validity : null,
+        amountText,
+      ]
+    );
+    // Same transaction: the notification commits only if the purchase does.
+    // The recipient number is masked; the buyer already knows the full
+    // number from their own request and the confirmed response.
+    const eventType = kind === "data" ? "data_purchased" : "airtime_purchased";
+    const title = kind === "data" ? "Data purchase" : "Airtime purchase";
+    await createNotification(client, {
+      userId,
+      eventType,
+      title,
+      message: `Simulated ${kind} purchase of ${nairaText(amountText)} (${network}) for ${maskMsisdn(msisdn)}. Ref ${ledger.reference}. No real delivery occurred.`,
+      reference: ledger.reference,
+      destination: "/history",
+      dedupeKey: `${eventType}:${ledger.reference}`,
+    });
+    const body = {
+      success: true,
+      message: `Simulated ${kind} purchase successful. No real ${kind} was delivered.`,
+      reference: ledger.reference,
+      kind,
+      network,
+      recipientMsisdn: msisdn,
+      amount: toNum(amountText),
+      fee: 0,
+      narration: narration || null,
+      bundle: bundle ? { ...bundle } : null,
+      newBalance: toNum(debited.rows[0].balance),
+      timestamp: ledger.created_at,
+    };
+    if (idempotencyKey) {
+      await completeIdempotencyKey(client, { key: idempotencyKey, code: 200, body });
+    }
+    await client.query("COMMIT");
+    await maybeNotifyMoneyEvents([
+      {
+        userId,
+        subject: `${kind} purchase`,
+        body: `Simulated ${kind} purchase of ${nairaText(amountText)} (${network}). Ref ${ledger.reference}.`,
+        reference: ledger.reference,
+      },
+    ]);
+    return { body, status: 200 };
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (_) {
+      // Original error takes precedence.
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// Masks a Nigerian E.164 number for notifications: +2348012345678 ->
+// +234 **** *567. Never used for charging or lookup, display only.
+function maskMsisdn(msisdn) {
+  const s = String(msisdn || "");
+  if (!/^\+\d{10,15}$/.test(s)) return "a phone number";
+  return `${s.slice(0, 4)} **** *${s.slice(-3)}`;
+}
+
 // Idempotent admin bootstrap. Never promotes an existing ordinary user:
 // an email collision with a non-admin is reported as a conflict to resolve manually.
 async function bootstrapAdminRecord({ name, email, passwordHash }) {
@@ -1061,6 +1188,8 @@ module.exports = {
   depositToAccount,
   adminCredit,
   transferFunds,
+  purchaseTopup,
+  maskMsisdn,
   bootstrapAdminRecord,
   updateProfile,
   createEmailVerificationToken,
