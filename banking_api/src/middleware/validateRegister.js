@@ -1,18 +1,27 @@
 const AppError = require("../utils/AppError");
 const { PASSWORD_REGEX, PASSWORD_REQUIREMENTS } = require("../utils/password");
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const { classifyIdentifier } = require("../utils/identifier");
 
 const validateRegister = (req, res, next) => {
-  const { name, email, password } = req.body || {};
+  const { name, email, identifier, phone, password } = req.body || {};
   const errors = [];
 
   if (typeof name !== "string" || name.trim() === "") {
     errors.push("Name is required");
   }
 
-  if (typeof email !== "string" || !EMAIL_REGEX.test(email.trim())) {
-    errors.push("A valid email is required");
+  // Accept { identifier } (email or phone) plus legacy { email }.
+  const rawIdentifier =
+    typeof identifier === "string" && identifier.trim() !== ""
+      ? identifier
+      : typeof email === "string" && email.trim() !== ""
+        ? email
+        : typeof phone === "string" && phone.trim() !== ""
+          ? phone
+          : "";
+  const classified = classifyIdentifier(rawIdentifier);
+  if (!classified.ok) {
+    errors.push(classified.error);
   }
 
   if (typeof password !== "string" || !PASSWORD_REGEX.test(password)) {
@@ -29,7 +38,8 @@ const validateRegister = (req, res, next) => {
 
   //this clean the data before the controller uses it
   req.body.name = name.trim();
-  req.body.email = email.trim().toLowerCase();
+  req.body.email = classified.kind === "email" ? classified.value : null;
+  req.body.phone = classified.kind === "phone" ? classified.value : null;
 
   next();
 };
