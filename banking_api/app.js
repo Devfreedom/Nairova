@@ -22,6 +22,8 @@ const allowedOrigins = (process.env.FRONTEND_ORIGIN || "http://localhost:5173")
 app.use(cors({
   origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
   credentials: false,
+  // Let the browser read rate-limit headers so the UI can show wait times.
+  exposedHeaders: ["Retry-After", "RateLimit", "RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset", "RateLimit-Policy"],
 }));
 app.use(logger);
 app.use(apiLimiter);

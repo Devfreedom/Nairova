@@ -51,9 +51,38 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
 
   if (!res.ok) {
     const details = data?.errors ? `: ${(data.errors || []).join(", ")}` : "";
-    throw new Error(`${data?.message || `Request failed (${res.status})`}${details}`);
+    let message = data?.message || `Request failed (${res.status})`;
+    // Surface the backend's rate-limit signal with a user-friendly wait hint.
+    // Nothing here bypasses the limit — it only reads the response headers.
+    if (res.status === 429) {
+      const wait = retryWaitMessage(res.headers);
+      if (wait) message += ` ${wait}`;
+    }
+    throw new Error(`${message}${details}`);
   }
   return data;
+}
+
+function retryWaitMessage(headers) {
+  if (!headers || typeof headers.get !== "function") return "";
+  const raw = headers.get("Retry-After") || headers.get("RateLimit-Reset");
+  if (!raw) return "";
+  let seconds = null;
+  if (/^\d+$/.test(raw.trim())) {
+    seconds = parseInt(raw.trim(), 10);
+  } else {
+    const at = Date.parse(raw);
+    if (!Number.isNaN(at)) seconds = Math.max(0, Math.round((at - Date.now()) / 1000));
+  }
+  if (seconds === null) return "";
+  if (seconds >= 90) {
+    const minutes = Math.round(seconds / 60);
+    return `Please wait about ${minutes} minute${minutes === 1 ? "" : "s"} before trying again.`;
+  }
+  if (seconds > 0) {
+    return `Please wait ${seconds} second${seconds === 1 ? "" : "s"} before trying again.`;
+  }
+  return "Please try again shortly.";
 }
 
 export const api = {
