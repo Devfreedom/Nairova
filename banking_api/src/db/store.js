@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const AppError = require("../utils/AppError");
 const { getPool } = require("./pool");
 const { generateReference, fingerprintEqual } = require("../utils/ledger");
+const { maybeSendEmail } = require("../utils/email");
 
 const DUPLICATE_EMAIL_MESSAGE = "Email is already registered";
 const DUPLICATE_PHONE_MESSAGE = "Phone number is already registered";
@@ -20,6 +21,7 @@ function mapUserAccount(r) {
     role: r.role,
     passwordHash: r.password_hash,
     pinHash: r.pin_hash,
+    emailVerified: r.email_verified === true,
     createdAt: r.user_created_at,
     accountId: r.account_id,
     accountNumber: r.account_number,
