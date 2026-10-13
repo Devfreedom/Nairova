@@ -1,11 +1,13 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
 import { useAuth } from "./auth/AuthContext";
+import { UnreadProvider } from "./notifications/UnreadContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Transfer from "./pages/Transfer";
 import History from "./pages/History";
+import Notifications from "./pages/Notifications";
 import Admin from "./pages/Admin";
 
 function RequireAuth({ children }) {
@@ -25,14 +27,17 @@ function RequireAdmin({ children }) {
 
 export default function App() {
   return (
+    <UnreadProvider>
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
       <Route path="/transfer" element={<RequireAuth><Transfer /></RequireAuth>} />
       <Route path="/history" element={<RequireAuth><History /></RequireAuth>} />
+      <Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} />
       <Route path="/admin" element={<RequireAdmin><Admin /></RequireAdmin>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </UnreadProvider>
   );
 }
