@@ -46,10 +46,26 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
             <path d="M0 120 L800 40" />
           </g>
         </svg>
-        <div className="relative flex h-full flex-col justify-between p-12">
-          <p className="max-w-md text-2xl font-semibold leading-snug text-white">
-            Your money, <span style={{ color: "#B8F2D2" }}>clearly in view.</span>
-          </p>
+        <div className="relative flex h-full flex-col justify-between gap-8 p-12">
+          <div>
+            <p className="max-w-md text-2xl font-semibold leading-snug tracking-tight text-white">
+              Your money, <span style={{ color: "#B8F2D2" }}>clearly in view.</span>
+            </p>
+            <ul className="mt-5 space-y-2.5 text-sm text-emerald-100/90">
+              <li className="flex items-center gap-2.5">
+                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ background: "#B8F2D2", color: "#10382F" }}>✓</span>
+                Verify recipients before sending
+              </li>
+              <li className="flex items-center gap-2.5">
+                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ background: "#B8F2D2", color: "#10382F" }}>✓</span>
+                PIN-protected simulated transfers
+              </li>
+              <li className="flex items-center gap-2.5">
+                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ background: "#B8F2D2", color: "#10382F" }}>✓</span>
+                Full transaction history
+              </li>
+            </ul>
+          </div>
           <div className="anim-card relative max-w-sm">
             <div className="rounded-2xl bg-white p-5 text-slate-900 shadow-2xl">
               <div className="flex items-center justify-between">
