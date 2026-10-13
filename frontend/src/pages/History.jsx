@@ -38,13 +38,12 @@ export default function History() {
     load();
   }, []);
 
-  let lastGroup = "";
-  const rows = txns.map((t) => {
+  const rows = txns.reduce((acc, t) => {
     const group = groupLabel(t.timestamp) || "";
-    const showGroup = group !== lastGroup;
-    lastGroup = group;
-    return { txn: t, group, showGroup };
-  });
+    acc.items.push({ txn: t, group, showGroup: group !== acc.last });
+    acc.last = group;
+    return acc;
+  }, { last: "", items: [] }).items;
 
   return (
     <div className="mx-auto max-w-2xl">
