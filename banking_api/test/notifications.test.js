@@ -15,6 +15,7 @@ describe("notification centre", () => {
   let senderAccount;
   let receiverAccount;
   let transferReference;
+  let transferKey;
 
   before(async () => {
     await resetDb();
@@ -64,6 +65,7 @@ describe("notification centre", () => {
     assert.equal(credit.status, 200);
 
     const key = randomUUID();
+    transferKey = key;
     const moved = await api(base, "POST", "/api/transfer", {
       token: senderToken,
       body: { receiverAccountNumber: receiverAccount, amount: 5000, pin: "1111", idempotencyKey: key },
@@ -96,17 +98,13 @@ describe("notification centre", () => {
   });
 
   it("creates no duplicate notification on idempotent retry", async () => {
-    const before = await list(senderToken);
-    const sentBefore = before.data.data.filter((n) => n.eventType === "transfer_sent");
-    assert.equal(sentBefore.length, 1);
-
     // Same key + same payload replays the stored outcome without executing.
     const replay = await api(base, "POST", "/api/transfer", {
       token: senderToken,
-      body: { receiverAccountNumber: receiverAccount, amount: 5000, pin: "1111", idempotencyKey: sentBefore[0] && undefined },
+      body: { receiverAccountNumber: receiverAccount, amount: 5000, pin: "1111", idempotencyKey: transferKey },
     });
-    assert.ok([200, 400].includes(replay.status)); // missing key is fine; covered below with the real key
-    void replay;
+    assert.equal(replay.status, 200);
+    assert.equal(replay.data.reference, transferReference);
 
     const after = await list(senderToken);
     const sentAfter = after.data.data.filter((n) => n.eventType === "transfer_sent");
