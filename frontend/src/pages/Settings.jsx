@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
-import { useTheme, THEME_OPTIONS } from "../theme/ThemeContext";
+import { useTheme } from "../theme/ThemeContext";
 import { Alert } from "../components/ui";
+
+const THEME_CHOICES = ["light", "dark", "system"];
 
 function Section({ id, eyebrow, title, hint, children }) {
   return (
@@ -78,9 +80,13 @@ export default function Settings() {
   const [themeMsg, setThemeMsg] = useState({ kind: "", text: "" });
   const [themeBusy, setThemeBusy] = useState(false);
 
+  // One-time form hydration per account: refreshUser calls must never
+  // clobber in-progress edits, so this runs once per user id, not per user object.
+  const syncedUser = useRef(null);
   useEffect(() => {
     async function sync() {
-      if (!user) return;
+      if (!user || syncedUser.current === user.id) return;
+      syncedUser.current = user.id;
       const snap = { name: user.name ?? "", email: user.email ?? "", phone: user.phone ?? "" };
       setName(snap.name);
       setEmail(snap.email);
@@ -91,7 +97,7 @@ export default function Settings() {
       setPrefsBaseline(p);
     }
     sync();
-  }, [user?.id]);
+  });
 
   const profileDirty =
     profileBaseline &&
@@ -436,7 +442,7 @@ export default function Settings() {
       <Section id="settings-appearance" eyebrow="Appearance" title="Theme" hint="System follows your device setting and updates automatically.">
         <Alert kind={themeMsg.kind}>{themeMsg.text}</Alert>
         <div role="radiogroup" aria-label="Theme" className="mt-3 grid gap-2 min-[480px]:grid-cols-3">
-          {THEME_OPTIONS.map((t) => (
+          {THEME_CHOICES.map((t) => (
             <label
               key={t}
               className={`t-border flex cursor-pointer items-center gap-2.5 rounded-xl border px-3.5 py-3 ${choice === t ? "bg-[var(--surface-2)]" : ""}`}

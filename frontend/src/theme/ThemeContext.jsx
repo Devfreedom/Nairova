@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 const STORAGE_KEY = "nairova-theme";
-export const THEME_OPTIONS = ["light", "dark", "system"];
+const THEME_OPTIONS = ["light", "dark", "system"];
 
 const ThemeContext = createContext({ theme: "light", choice: "system", setTheme: () => {}, toggle: () => {} });
 
