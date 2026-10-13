@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Transfer from "./pages/Transfer";
+import TopUp from "./pages/TopUp";
 import History from "./pages/History";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
@@ -52,6 +53,7 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
       <Route path="/transfer" element={<RequireAuth><Transfer /></RequireAuth>} />
+      <Route path="/topup" element={<RequireAuth><TopUp /></RequireAuth>} />
       <Route path="/history" element={<RequireAuth><History /></RequireAuth>} />
       <Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />

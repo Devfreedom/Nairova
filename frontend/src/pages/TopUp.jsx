@@ -6,7 +6,6 @@ import { parseAirtimeAmount } from "../lib/amount";
 import { formatNaira } from "../lib/format";
 import {
   SUBMIT_TIMEOUT_MS,
-  TOPUP_PENDING_KEY,
   mintKey,
   loadTopupPending,
   saveTopupPending,

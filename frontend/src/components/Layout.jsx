@@ -80,6 +80,7 @@ export default function Layout({ children }) {
           <p className="eyebrow px-3 pb-1.5">Menu</p>
           <SideLink to="/" end icon={Icons.home}>Dashboard</SideLink>
           <SideLink to="/transfer" icon={Icons.send}>Transfer</SideLink>
+          <SideLink to="/topup" icon={Icons.phone}>Top-up</SideLink>
           <SideLink to="/history" icon={Icons.clock}>History</SideLink>
           <SideLink to="/notifications" icon={Icons.bell}>
             Notifications{badge}
@@ -175,6 +176,7 @@ export default function Layout({ children }) {
           >
             <TabItem to="/" end icon={Icons.home} label="Home" />
             <TabItem to="/transfer" icon={Icons.send} label="Transfer" />
+            <TabItem to="/topup" icon={Icons.phone} label="Top-up" />
             <TabItem to="/history" icon={Icons.clock} label="History" />
             {isAdmin && <TabItem to="/admin" icon={Icons.shield} label="Admin" />}
           </nav>
