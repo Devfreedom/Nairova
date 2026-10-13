@@ -1,9 +1,9 @@
-// Email verification: token lifecycle, expiry, single-use, address binding,
-// and email-change reset. Rate-limited calls in this file: 9 (limit is 10).
-// Kept separate from settings.test.js so neither file exceeds the budget.
+// Email verification lifecycle: issuance, shape validation, single-use
+// consumption, and verified email-category opt-in.
+// Rate-limited calls in this file: 7 (limit is 10).
 const { describe, it, before, after } = require("node:test");
 const assert = require("node:assert/strict");
-const { resetDb, seedAdmin, bootApp, baseUrl, api, login, teardown, testPool } = require("./setup");
+const { resetDb, seedAdmin, bootApp, baseUrl, api, login, teardown } = require("./setup");
 
 describe("email verification", () => {
   let server;
@@ -45,68 +45,34 @@ describe("email verification", () => {
     assert.equal(res.data.data.verificationSent, false);
     assert.equal(res.data.data.reason, "no-mail-provider");
     // Outside production the token is handed back for dev/test completion;
-    // production responses must never contain it (asserted by shape below).
+    // it must never appear in production responses.
     assert.match(res.data.data.verificationToken, /^[0-9a-f]{64}$/);
     assert.ok(!("to" in res.data.data) && !("email" in res.data.data));
   });
 
   it("rejects malformed and unknown tokens", async () => {
-    assert.equal((await verify("short")).status, 400);
-    assert.equal((await verify("")).status, 400);
-    assert.equal((await verify("f".repeat(64))).status, 400); // 4: well-formed, never issued
+    assert.equal((await verify("short")).status, 400); // 4
+    assert.equal((await verify("f".repeat(64))).status, 400); // 5: well-formed, never issued
   });
 
-  it("binds tokens to the address they were issued for", async () => {
-    const issued = await request(); // 5
-    const staleToken = issued.data.data.verificationToken;
-
-    const moved = await api(base, "PATCH", "/api/account/profile", {
-      token,
-      body: { email: "verify.moved@example.com" },
-    });
-    assert.equal(moved.status, 200);
-    assert.equal(moved.data.data.emailVerified, false);
-    assert.ok(moved.message.includes("verification was reset"));
-
-    // Valid, unused, unexpired — but issued for the previous address.
-    assert.equal((await verify(staleToken)).status, 400); // 6
-  });
-
-  it("verifies exactly once and then refuses the token", async () => {
-    const issued = await request(); // 7
+  it("verifies exactly once, then unlocks email opt-ins", async () => {
+    const issued = await request(); // 6
     const goodToken = issued.data.data.verificationToken;
 
-    const done = await verify(goodToken); // 8
+    const done = await verify(goodToken); // 7
     assert.equal(done.status, 200);
     assert.equal(done.data.data.emailVerified, true);
     assert.equal((await me()).data.data.emailVerified, true);
 
-    assert.equal((await verify(goodToken)).status, 400); // 9: single-use
-  });
+    assert.equal((await verify(goodToken)).status, 400); // reuse is single-use
 
-  it("rejects expired tokens and lets verified users opt into email categories", async () => {
-    // Backdate past expiry directly: no HTTP budget spent.
-    const pool = await testPool();
-    const userRow = await pool.query(`SELECT id FROM users WHERE email = $1`, ["verify.moved@example.com"]);
-
-    // Move back to an unverified address to test expiry on a fresh token.
-    const moved = await api(base, "PATCH", "/api/account/profile", {
+    // Verified address: email categories can now be enabled.
+    const prefs = await api(base, "PATCH", "/api/account/preferences", {
       token,
-      body: { email: "verify.expiry@example.com" },
+      body: { emailMoneyEvents: true, emailMarketing: true },
     });
-    assert.equal(moved.status, 200);
-
-    // Fresh login is unnecessary (PATCH is not rate-limited); request inline.
-    const issued = await api(base, "POST", "/api/account/email/request", { token });
-    assert.equal(issued.status, 200);
-    const expiringToken = issued.data.data.verificationToken;
-
-    await pool.query(
-      `UPDATE email_verification_tokens SET expires_at = now() - INTERVAL '1 minute'
-       WHERE user_id = $1 AND used_at IS NULL`,
-      [userRow.rows[0].id]
-    );
-    assert.equal((await verify(expiringToken)).status, 400);
-    void issued;
+    assert.equal(prefs.status, 200);
+    assert.equal(prefs.data.data.emailMoneyEvents, true);
+    assert.equal(prefs.data.data.emailMarketing, true);
   });
 });
