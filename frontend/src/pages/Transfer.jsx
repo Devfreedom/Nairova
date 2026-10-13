@@ -1,17 +1,22 @@
 import { useState } from "react";
 import { api } from "../lib/api";
+import { parseTransferAmount } from "../lib/amount";
 import { formatNaira } from "../lib/format";
 import { Alert, Icons } from "../components/ui";
 
 export default function Transfer() {
   const [accountNumber, setAccountNumber] = useState("");
   const [amount, setAmount] = useState("");
+  const [narration, setNarration] = useState("");
   const [pin, setPin] = useState("");
   const [verified, setVerified] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  // One idempotency key per intended transfer: retries reuse it so a
+  // double-click cannot debit twice; a new transfer mints a fresh key.
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 
   async function handleVerify() {
     setError("");
@@ -38,23 +43,36 @@ export default function Transfer() {
     if (busy) return;
     setError("");
     setSuccess("");
-    // Strip grouping separators so comma-formatted values like 100,000 parse
-    // correctly; the numeric API contract is unchanged.
-    const amt = Number(String(amount).replace(/[,\s]/g, ""));
-    if (!Number.isFinite(amt) || amt <= 0) {
-      setError("Enter an amount greater than zero.");
+    // Client-side transfer bounds (₦100–₦1,000,000); the backend enforces
+    // them authoritatively. The numeric API contract is unchanged.
+    const parsed = parseTransferAmount(amount);
+    if (!parsed.ok) {
+      setError(parsed.error);
       return;
     }
     if (!/^\d{4}$/.test(pin)) {
       setError("Enter your 4-digit transaction PIN.");
       return;
     }
+    if (narration.trim().length > 140) {
+      setError("Narration must be at most 140 characters.");
+      return;
+    }
     setBusy(true);
     try {
-      const res = await api.transfer({ receiverAccountNumber: accountNumber.trim(), amount: amt, pin });
+      const res = await api.transfer({
+        receiverAccountNumber: accountNumber.trim(),
+        amount: parsed.value,
+        pin,
+        narration: narration.trim() || undefined,
+        idempotencyKey,
+      });
       setSuccess(`${res.message}. New balance: ${formatNaira(res.newBalance)}.`);
       setAmount("");
+      setNarration("");
       setPin("");
+      // A deliberately new transfer must never reuse the previous key.
+      setIdempotencyKey(crypto.randomUUID());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -144,7 +162,7 @@ export default function Transfer() {
           </div>
           <fieldset className="mt-4 space-y-4">
             <label className="block" htmlFor="transfer-amount">
-              <span className="label">Amount (₦)</span>
+              <span className="label">Amount (₦) · ₦100 – ₦1,000,000</span>
               <input
                 id="transfer-amount"
                 name="transferAmount"
@@ -156,6 +174,20 @@ export default function Transfer() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
+              />
+            </label>
+            <label className="block" htmlFor="transfer-narration">
+              <span className="label">Narration (optional)</span>
+              <input
+                id="transfer-narration"
+                name="transferNarration"
+                type="text"
+                autoComplete="off"
+                className="field"
+                maxLength={140}
+                placeholder="What is this for?"
+                value={narration}
+                onChange={(e) => setNarration(e.target.value)}
               />
             </label>
             <label className="block" htmlFor="transfer-pin">
