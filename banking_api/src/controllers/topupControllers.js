@@ -251,3 +251,15 @@ const purchaseData = async (req, res, next) => {
     next(err);
   }
 };
+
+module.exports = {
+  getTopupCatalogue,
+  assertExactFields,
+  validateNetwork,
+  validateMsisdn,
+  validateAirtimeAmount,
+  validateKey,
+  validatePinOwner,
+  purchaseAirtime,
+  purchaseData,
+};
