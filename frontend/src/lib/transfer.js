@@ -89,7 +89,9 @@ export function isPinlessError(err) {
 
 export function lagosTime(iso) {
   try {
-    return new Date(iso).toLocaleString("en-NG", {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString("en-NG", {
       timeZone: "Africa/Lagos",
       day: "numeric",
       month: "short",

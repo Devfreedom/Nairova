@@ -74,9 +74,10 @@ describe("pending transfer recovery", () => {
 
   it("never persists secrets, even if passed in", () => {
     const storage = stubStorage();
-    savePending({ ...INTENT, pin: "1234", password: "Secret1!", token: "jwt-value" }, storage);
+    // NOTE: the probe PIN must not collide with fixture digits.
+    savePending({ ...INTENT, pin: "9999", password: "Secret1!", token: "jwt-value" }, storage);
     const raw = storage.raw(PENDING_KEY);
-    assert.ok(!raw.includes("1234"), "PIN must not appear in storage");
+    assert.ok(!raw.includes("9999"), "PIN must not appear in storage");
     assert.ok(!raw.includes("Secret1!"), "password must not appear in storage");
     assert.ok(!raw.includes("jwt-value"), "token must not appear in storage");
     assert.deepEqual(loadPending(storage), INTENT);
