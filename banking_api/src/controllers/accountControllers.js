@@ -1,16 +1,19 @@
-const { users, transactions, getNextId } = require("../data/users");
 const bcrypt = require("bcrypt");
 const AppError = require("../utils/AppError")
 const { normalizeAmount } = require("../utils/money");
-
-const sanitizeUser = (user) => {
-  const { password, pin, ...safe } = user;
-  return safe;
-};
+const {
+  findUserById,
+  setPinHash,
+  listUsers,
+  findAccountByNumber,
+  transactionsForUser,
+  allTransactions,
+  depositToAccount,
+} = require("../db/store");
 
 const getBalance = async (req, res, next) => {
     try {
-        const user = users.find((u) => u.id === req.user.id);
+        const user = await findUserById(req.user.id);
         if (!user) {
             throw new AppError("User not found", 404);
         }
@@ -33,18 +36,18 @@ const createPin = async (req, res, next) => {
             throw new AppError('PIN must be exactly 4 digits', 400);
         }
 
-        const user = users.find((u) => u.id === req.user.id);
+        const user = await findUserById(req.user.id);
 
         if (!user) {
             throw new AppError('User not found', 404);
         }
 
-        if (user.pin) {
+        if (user.pinHash) {
             throw new AppError('PIN already set. Use update instead.', 400);
         }
 
         const hashedPin = await bcrypt.hash(String(pin), 10);
-        user.pin = hashedPin;
+        await setPinHash(user.id, hashedPin);
 
         res.status(201).json({
             success: true,
@@ -63,24 +66,24 @@ const updatePin = async (req, res, next) => {
       throw new AppError('Old PIN and a valid new 4-digit PIN are required', 400);
     }
 
-    const user = users.find((u) => u.id === req.user.id);
+    const user = await findUserById(req.user.id);
 
     if (!user) {
       throw new AppError('User not found', 404);
     }
 
-    if (!user.pin) {
+    if (!user.pinHash) {
       throw new AppError('No PIN set yet. Use create instead.', 400);
     }
 
-    const isMatch = await bcrypt.compare(String(oldPin), user.pin);
+    const isMatch = await bcrypt.compare(String(oldPin), user.pinHash);
 
     if (!isMatch) {
       throw new AppError('Old PIN is incorrect', 403);
     }
 
     const hashedPin = await bcrypt.hash(String(newPin), 10);
-    user.pin = hashedPin;
+    await setPinHash(user.id, hashedPin);
 
     res.status(200).json({
       success: true,
@@ -101,31 +104,16 @@ const deposit = async (req, res, next) => {
     }
     const amount = parsed.value;
 
-    const user = users.find((u) => u.id === req.user.id);
+    const result = await depositToAccount(req.user.id, amount.toFixed(2));
 
-    if (!user) {
+    if (!result) {
       throw new AppError('User not found', 404);
     }
-
-    user.balance = Math.round((user.balance + amount) * 100) / 100;
-
-    const newTransaction = {
-      id: getNextId(),
-      type: 'deposit',
-      senderId: null,
-      senderAccountNumber: null,
-      receiverId: user.id,
-      receiverAccountNumber: user.accountNumber,
-      amount,
-      status: 'success',
-      timestamp: new Date(),
-    };
-    transactions.push(newTransaction);
 
     res.status(200).json({
       success: true,
       message: `Successfully deposited ${amount} (simulated demo funds)`,
-      newBalance: user.balance,
+      newBalance: result.newBalance,
     });
   } catch (err) {
     next(err);
@@ -140,7 +128,7 @@ const verifyAccount = async (req, res, next) => {
             throw new AppError('Receiver account number is required', 400);
         }
 
-        const account = users.find((u) => u.accountNumber === receiverAccountNumber);
+        const account = await findAccountByNumber(receiverAccountNumber);
 
         if (!account) {
             throw new AppError('Receiver account not found', 404)
@@ -162,9 +150,10 @@ const verifyAccount = async (req, res, next) => {
 
 const getAllUsers = async (req, res, next) => {
   try {
+    const customers = await listUsers();
     res.status(200).json({
       success: true,
-      users: users.map(sanitizeUser),
+      users: customers,
     });
   } catch (err) {
     next(err);
@@ -173,22 +162,21 @@ const getAllUsers = async (req, res, next) => {
 
 const getTransactions = async (req, res, next) => {
   try {
-    const user = users.find((u) => u.id === req.user.id);
+    const user = await findUserById(req.user.id);
     if (!user) {
       throw new AppError('User not found', 404);
     }
     // Admins may review all records for the demo; customers see only their own.
-    const own = req.user.role === "admin"
-      ? [...transactions]
-      : transactions.filter((t) => t.senderId === user.id || t.receiverId === user.id);
-    own.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const records = req.user.role === "admin"
+      ? await allTransactions()
+      : await transactionsForUser(user.id);
     res.status(200).json({
       success: true,
-      data: own,
+      data: records,
     });
   } catch (err) {
     next(err);
   }
 };
 
-module.exports = { getBalance, createPin, updatePin, deposit, verifyAccount, getAllUsers, getTransactions, sanitizeUser };
+module.exports = { getBalance, createPin, updatePin, deposit, verifyAccount, getAllUsers, getTransactions };
