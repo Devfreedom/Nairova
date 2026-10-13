@@ -103,7 +103,7 @@ export default function Dashboard() {
       <div className="card bg-gradient-to-br from-emerald-800 to-emerald-600 text-white">
         <p className="text-xs uppercase tracking-wide text-emerald-100">Hello, {user?.name}</p>
         <p className="mt-1 text-sm text-emerald-100">Acct {user?.accountNumber} · {user?.email}</p>
-        <p className="mt-3 text-xs uppercase tracking-wide text-emerald-100">Available balance (simulated)</p>
+        <p className="mt-3 text-xs uppercase tracking-wide text-emerald-100">Available balance</p>
         <p className="text-3xl font-bold">{loading ? "…" : formatNaira(balance ?? 0)}</p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Link to="/transfer" className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-emerald-800">Send money</Link>

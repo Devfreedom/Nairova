@@ -51,9 +51,6 @@ export default function Layout({ children }) {
       </header>
 
       <div className="mx-auto max-w-5xl px-4 py-6">
-        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Classroom demo — all funds are <strong>simulated</strong>. No real money moves here.
-        </p>
         {children}
       </div>
     </div>
