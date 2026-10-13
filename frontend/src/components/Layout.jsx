@@ -84,6 +84,7 @@ export default function Layout({ children }) {
           <SideLink to="/notifications" icon={Icons.bell}>
             Notifications{badge}
           </SideLink>
+          <SideLink to="/settings" icon={Icons.gear}>Settings</SideLink>
           {isAdmin && (
             <>
               <p className="eyebrow px-3 pb-1.5 pt-4">Manage</p>
@@ -127,6 +128,16 @@ export default function Layout({ children }) {
               <span className="t-text text-[17px] font-extrabold tracking-tight">Nairova</span>
             </Link>
             <div className="flex items-center gap-2">
+              {user && (
+                <Link
+                  to="/settings"
+                  aria-label="Settings"
+                  title="Settings"
+                  className="t-muted rounded-lg p-2"
+                >
+                  <span aria-hidden="true">{Icons.gear}</span>
+                </Link>
+              )}
               {user && (
                 <Link
                   to="/notifications"
