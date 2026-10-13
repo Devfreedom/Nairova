@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { Alert, Field, PasswordField } from "../components/ui";
+import AuthLayout from "../components/AuthLayout";
+import { Alert, Field, PasswordField, Icons } from "../components/ui";
 
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -19,13 +20,17 @@ export default function Register() {
       setError("Please enter your full name.");
       return;
     }
+    if (!identifier.trim()) {
+      setError("Enter an email address or a Nigerian phone number.");
+      return;
+    }
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
     }
     setBusy(true);
     try {
-      await register(name.trim(), email.trim(), password);
+      await register(name.trim(), identifier.trim(), password);
       navigate("/");
     } catch (err) {
       setError(err.message);
@@ -35,22 +40,43 @@ export default function Register() {
   }
 
   return (
-    <div className="mx-auto max-w-md">
-      <div className="card">
-        <h1 className="text-xl font-bold">Create an account</h1>
-        <p className="mt-1 text-sm text-slate-500">Signups always create ordinary customer accounts.</p>
-        <form onSubmit={onSubmit} className="mt-4 space-y-3">
-          <Alert>{error}</Alert>
-          <Field label="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required />
-          <Field label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
-          <PasswordField label="Password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          <p className="text-xs text-slate-500">Use 6+ characters with upper, lower, number and a symbol.</p>
-          <button className="btn-primary" disabled={busy}>{busy ? "Creating…" : "Register"}</button>
-        </form>
-        <p className="mt-3 text-sm text-slate-500">
-          Have an account? <Link to="/login" className="font-medium text-emerald-700 hover:underline">Log in</Link>
-        </p>
-      </div>
-    </div>
+    <AuthLayout
+      title="Create your Nairova account"
+      subtitle="A simpler way to manage your account."
+      footer={<>Already have an account? <Link to="/login" className="link-brand">Log in</Link></>}
+    >
+      <form onSubmit={onSubmit} className="space-y-4">
+        <Alert>{error}</Alert>
+        <Field
+          label="Full name"
+          icon={Icons.user}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoComplete="name"
+          placeholder="Adaeze Obi"
+          required
+        />
+        <Field
+          label="Email or phone number"
+          icon={Icons.id}
+          type="text"
+          autoComplete="username"
+          placeholder="you@example.com or 08012345678"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          required
+        />
+        <PasswordField
+          label="Password"
+          icon={Icons.lock}
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <p className="t-muted text-xs">Use 6+ characters with upper, lower, number and a symbol. Signups always create ordinary customer accounts.</p>
+        <button className="btn-primary" disabled={busy}>{busy ? "Creating…" : "Create account"}</button>
+      </form>
+    </AuthLayout>
   );
 }

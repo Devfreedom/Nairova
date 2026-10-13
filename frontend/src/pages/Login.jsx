@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { Alert, Field, PasswordField } from "../components/ui";
+import AuthLayout from "../components/AuthLayout";
+import { Alert, Field, PasswordField, Icons } from "../components/ui";
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -14,13 +15,13 @@ export default function Login() {
   async function onSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!email.trim() || !password) {
-      setError("Email and password are required.");
+    if (!identifier.trim() || !password) {
+      setError("Email or phone number and password are required.");
       return;
     }
     setBusy(true);
     try {
-      const user = await login(email.trim(), password);
+      const user = await login(identifier.trim(), password);
       navigate(user?.role === "admin" ? "/admin" : "/");
     } catch (err) {
       setError(err.message);
@@ -30,20 +31,33 @@ export default function Login() {
   }
 
   return (
-    <div className="mx-auto max-w-md">
-      <div className="card">
-        <h1 className="text-xl font-bold">Welcome back</h1>
-        <p className="mt-1 text-sm text-slate-500">Log in to view your balance and transactions.</p>
-        <form onSubmit={onSubmit} className="mt-4 space-y-3">
-          <Alert>{error}</Alert>
-          <Field label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <PasswordField label="Password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          <button className="btn-primary" disabled={busy}>{busy ? "Logging in…" : "Log in"}</button>
-        </form>
-        <p className="mt-3 text-sm text-slate-500">
-          New here? <Link to="/register" className="font-medium text-emerald-700 hover:underline">Create an account</Link>
-        </p>
-      </div>
-    </div>
+    <AuthLayout
+      title="Welcome back"
+      subtitle="Your money, clearly in view."
+      footer={<>New to Nairova? <Link to="/register" className="link-brand">Create an account</Link></>}
+    >
+      <form onSubmit={onSubmit} className="space-y-4" noValidate={false}>
+        <Alert>{error}</Alert>
+        <Field
+          label="Email or phone number"
+          icon={Icons.id}
+          type="text"
+          autoComplete="username"
+          placeholder="you@example.com or 08012345678"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          required
+        />
+        <PasswordField
+          label="Password"
+          icon={Icons.lock}
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <button className="btn-primary" disabled={busy}>{busy ? "Logging in…" : "Log in"}</button>
+      </form>
+    </AuthLayout>
   );
 }
