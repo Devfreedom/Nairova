@@ -1,0 +1,70 @@
+# Continuous integration: backend tests against an isolated PostgreSQL
+# service plus frontend lint and production build. Uses only throwaway
+# CI credentials — never production database URLs or secrets.
+# This workflow does not deploy anything.
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bankapp
+          POSTGRES_PASSWORD: bankapp_ci_password
+          POSTGRES_DB: bankapp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bankapp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://bankapp:bankapp_ci_password@127.0.0.1:5432/bankapp_test
+      TEST_DATABASE_URL: postgresql://bankapp:bankapp_ci_password@127.0.0.1:5432/bankapp_test_ci
+      JWT_SECRET: ci-only-test-secret
+      PGSSL:
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: banking_api/package-lock.json
+      - name: Create isolated test database
+        run: PGPASSWORD=bankapp_ci_password psql -h 127.0.0.1 -U bankapp -d bankapp_test -c 'CREATE DATABASE bankapp_test_ci;'
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: banking_api
+      - name: Run backend tests
+        run: npm test
+        working-directory: banking_api
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Lint
+        run: npm run lint
+        working-directory: frontend
+      - name: Parser tests
+        run: npm run test:parser
+        working-directory: frontend
+      - name: Production build
+        run: npm run build
+        working-directory: frontend

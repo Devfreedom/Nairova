@@ -9,6 +9,7 @@ const transferRoutes = require("./src/routes/transferRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const errorHandler = require("./src/middleware/errorHandler")
 const AppError = require("./src/utils/AppError");
+const { checkConnection } = require("./src/db/pool");
 
 const app = express();
 
@@ -25,6 +26,18 @@ app.use(cors({
   // Let the browser read rate-limit headers so the UI can show wait times.
   exposedHeaders: ["Retry-After", "RateLimit", "RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset", "RateLimit-Policy"],
 }));
+// Lightweight health probe for hosting checks (e.g. Render health checks).
+// Registered before the rate limiter so probes never consume API quota.
+// Reports database reachability without exposing credentials or details.
+app.get("/health", async (req, res) => {
+  try {
+    await checkConnection();
+    res.status(200).json({ success: true, status: "ok" });
+  } catch (err) {
+    res.status(503).json({ success: false, status: "unavailable" });
+  }
+});
+
 app.use(logger);
 app.use(apiLimiter);
 app.use(express.json({limit: "10kb"}));
