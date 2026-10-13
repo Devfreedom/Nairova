@@ -29,7 +29,7 @@ const authenticate = async (req, res, next) => {
       return next(new AppError("User no longer exists", 401));
     }
 
-    req.user = { id: user.id, name: user.name, email: user.email, role: user.role, accountNumber: user.accountNumber };
+    req.user = { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, accountNumber: user.accountNumber };
     next();
   } catch (err) {
     if (err instanceof AppError) return next(err);

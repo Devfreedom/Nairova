@@ -99,6 +99,7 @@ const resetCustomerPassword = async (req, res, next) => {
         id: target.id,
         name: target.name,
         email: target.email,
+        phone: target.phone,
         accountNumber: target.accountNumber,
       },
     });

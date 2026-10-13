@@ -1,7 +1,8 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const AppError = require("../utils/AppError");
-const { findUserByEmail, registerUser } = require("../db/store");
+const { findUserByIdentifier } = require("../db/store");
+const { registerUser } = require("../db/store");
 
 const jwtExpiresIn = process.env.JWT_EXPIRES_IN || process.env.JwT_EXPIRES_IN || "1h"
 
@@ -15,15 +16,15 @@ function jwtSecretOrThrow() {
 
 const register = async (req, res, next) => {
     try {
-        const { name, email, password } = req.body;
+        const { name, email, phone, password } = req.body;
 
         // Public registration always creates an ordinary user.
         // The role field from the client is intentionally ignored.
-        // Email normalization happens in validateRegister; uniqueness is
-        // enforced by the database constraint.
+        // Identifier normalization happens in validateRegister; uniqueness is
+        // enforced by the database constraints.
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const created = await registerUser({ name, email, passwordHash: hashedPassword });
+        const created = await registerUser({ name, email, phone, passwordHash: hashedPassword });
 
         res.status(201).json({
             success: true,
@@ -37,12 +38,14 @@ const register = async (req, res, next) => {
 
 const login = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
+        const { identifier, identifierKind, email, password } = req.body;
+        const kind = identifierKind === "phone" ? "phone" : "email";
+        const value = typeof identifier === "string" ? identifier : email;
 
-        const user = await findUserByEmail(email);
+        const user = await findUserByIdentifier({ kind, value });
         const passwordMatches = user ? await bcrypt.compare(password, user.passwordHash) : false;
         if (!user || !passwordMatches) {
-            throw new AppError("Invalid email or password", 401)
+            throw new AppError("Invalid email/phone number or password", 401)
         }
 
         const token = jwt.sign(
