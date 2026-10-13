@@ -12,15 +12,9 @@ function SideLink({ to, icon, children, end }) {
     <NavLink
       to={to}
       end={end}
-      className={({ isActive }) =>
-        `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-          isActive
-            ? "bg-forest text-white dark:bg-voltaic dark:text-midnight"
-            : "t-muted hover:t-text hover:bg-[var(--surface-2)]"
-        }`
-      }
+      className={({ isActive }) => `sidelink ${isActive ? "sidelink-active" : ""}`}
     >
-      <span aria-hidden="true">{icon}</span>
+      <span aria-hidden="true" className="shrink-0">{icon}</span>
       {children}
     </NavLink>
   );
@@ -32,16 +26,18 @@ function TabItem({ to, icon, label, end }) {
       to={to}
       end={end}
       aria-label={label}
-      className="flex min-h-[56px] min-w-[64px] flex-1 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-medium"
+      className="flex min-h-[58px] min-w-[64px] flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-bold"
       style={({ isActive }) => ({
         color: isActive ? "var(--brand-strong)" : "var(--muted)",
         background: isActive ? "var(--surface-2)" : "transparent",
+        boxShadow: isActive ? "inset 0 0 0 1px var(--border)" : "none",
       })}
     >
       {({ isActive }) => (
         <>
-          <span aria-hidden="true" style={isActive ? { transform: "translateY(-1px)" } : undefined}>{icon}</span>
+          <span aria-hidden="true">{icon}</span>
           <span>{label}</span>
+          <span aria-hidden="true" className="h-1 w-6 rounded-full" style={{ background: isActive ? "var(--brand-strong)" : "transparent" }} />
         </>
       )}
     </NavLink>
@@ -60,16 +56,22 @@ export default function Layout({ children }) {
   return (
     <div className="t-bg min-h-screen md:flex">
       {/* Desktop sidebar */}
-      <aside className="t-surface t-border sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r p-4 md:flex" aria-label="Primary">
-        <Link to="/" className="flex items-center gap-2 px-2 py-2">
-          <BrandMark />
-          <span className="t-text text-lg font-bold tracking-tight">Nairova</span>
+      <aside className="t-surface t-border sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r px-4 py-5 md:flex" aria-label="Primary">
+        <Link to="/" className="flex items-center gap-2.5 px-2 py-1">
+          <BrandMark size={38} />
+          <span className="t-text text-[18px] font-extrabold tracking-tight">Nairova</span>
         </Link>
-        <nav className="mt-6 flex flex-1 flex-col gap-1">
+        <nav className="mt-7 flex flex-1 flex-col gap-1">
+          <p className="eyebrow px-3 pb-1.5">Menu</p>
           <SideLink to="/" end icon={Icons.home}>Dashboard</SideLink>
           <SideLink to="/transfer" icon={Icons.send}>Transfer</SideLink>
-          <SideLink to="/history" icon={Icons.clock}>Transaction History</SideLink>
-          {isAdmin && <SideLink to="/admin" icon={Icons.shield}>Admin</SideLink>}
+          <SideLink to="/history" icon={Icons.clock}>History</SideLink>
+          {isAdmin && (
+            <>
+              <p className="eyebrow px-3 pb-1.5 pt-4">Manage</p>
+              <SideLink to="/admin" icon={Icons.shield}>Admin</SideLink>
+            </>
+          )}
         </nav>
         <div className="t-border border-t pt-4">
           <div className="mb-3 flex items-center justify-between px-2">
@@ -77,15 +79,15 @@ export default function Layout({ children }) {
             <ThemeToggle />
           </div>
           {user ? (
-            <div className="flex items-center gap-2 px-2">
-              <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] text-xs font-bold t-text">
+            <div className="t-surface-2 flex items-center gap-2.5 rounded-2xl p-2.5">
+              <span aria-hidden="true" className="t-text flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface)] text-xs font-extrabold">
                 {initials(user.name)}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="t-text truncate text-sm font-semibold">{user.name}</p>
+                <p className="t-text truncate text-[13px] font-bold">{user.name}</p>
                 <p className="t-muted truncate text-xs">{userIdentifier(user)}</p>
               </div>
-              <button onClick={handleLogout} className="t-muted rounded-lg px-2 py-1 text-xs font-semibold hover:text-[var(--text)] hover:underline">
+              <button onClick={handleLogout} className="t-muted shrink-0 rounded-lg px-2 py-1 text-xs font-bold hover:text-[var(--text)] hover:underline">
                 Logout
               </button>
             </div>
@@ -104,7 +106,7 @@ export default function Layout({ children }) {
           <div className="flex items-center justify-between px-4 py-3">
             <Link to="/" className="flex items-center gap-2">
               <BrandMark size={32} />
-              <span className="t-text font-bold tracking-tight">Nairova</span>
+              <span className="t-text text-[17px] font-extrabold tracking-tight">Nairova</span>
             </Link>
             <div className="flex items-center gap-2">
               <ThemeToggle />

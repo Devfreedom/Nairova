@@ -62,13 +62,34 @@ export default function Transfer() {
     }
   }
 
+  const stepLabels = ["Recipient", "Details", "Confirm"];
+  const currentStep = success ? 2 : verified ? 1 : 0;
+
   return (
     <div className="mx-auto max-w-lg">
       <header>
         <p className="eyebrow">Send money</p>
-        <h1 className="t-text mt-1 text-2xl font-bold tracking-tight">Transfer</h1>
+        <h1 className="t-text mt-1 text-[26px] font-extrabold tracking-tight sm:text-3xl">Transfer</h1>
         <p className="t-muted mt-0.5 text-sm">Send to another Nairova account. Verify the recipient before confirming.</p>
       </header>
+
+      <ol aria-label="Transfer progress" className="mt-5 flex items-center gap-1.5">
+        {stepLabels.map((label, i) => {
+          const done = i < currentStep || (i === 2 && !!success);
+          const active = i === currentStep;
+          return (
+            <li key={label} className="flex-1" aria-current={active ? "step" : undefined}>
+              <span className="flex items-center gap-2">
+                <span aria-hidden="true" className={`step-num ${done ? "done" : ""} ${active && !done ? "!bg-[var(--brand)] !text-white dark:!text-[#101C35]" : ""}`}>
+                  {done ? "✓" : i + 1}
+                </span>
+                <span className={`truncate text-xs font-bold ${active || done ? "t-text" : "t-muted"}`}>{label}</span>
+              </span>
+              <span aria-hidden="true" className={`mt-1.5 block h-1 rounded-full ${i <= currentStep ? "bg-[var(--brand-strong)]" : "bg-[var(--border)]"}`} />
+            </li>
+          );
+        })}
+      </ol>
 
       <form onSubmit={onSubmit} autoComplete="off" className="mt-5 space-y-4">
         <Alert>{error}</Alert>
@@ -129,7 +150,7 @@ export default function Transfer() {
                 name="transferAmount"
                 type="text"
                 autoComplete="off"
-                className="field text-base font-semibold"
+                className="field tnum text-lg font-bold"
                 inputMode="decimal"
                 placeholder="Enter amount"
                 value={amount}
@@ -168,7 +189,7 @@ export default function Transfer() {
             </div>
             <div className="flex justify-between gap-3">
               <dt>Amount</dt>
-              <dd className="t-text font-semibold">{amount.trim() ? `₦${amount.trim()}` : "—"}</dd>
+              <dd className="tnum t-text text-base font-extrabold">{amount.trim() ? `₦${amount.trim()}` : "—"}</dd>
             </div>
           </dl>
           <button className="btn-primary mt-4" disabled={busy}>

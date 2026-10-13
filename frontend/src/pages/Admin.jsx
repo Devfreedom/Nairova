@@ -134,8 +134,18 @@ export default function Admin() {
       <header className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="eyebrow">Privileged access</p>
-          <h1 className="t-text mt-1 text-2xl font-bold tracking-tight">Admin dashboard</h1>
+          <h1 className="t-text mt-1 text-[26px] font-extrabold tracking-tight sm:text-3xl">Admin dashboard</h1>
           <p className="t-muted mt-0.5 text-sm">Credit <strong>simulated test funds</strong> and manage customer access. Every action is recorded.</p>
+          {!loading && (
+            <p className="mt-2 flex flex-wrap gap-1.5">
+              <span className="t-muted rounded-full bg-[var(--surface-2)] px-3 py-1 text-xs font-bold">
+                {users.length} customer{users.length === 1 ? "" : "s"}
+              </span>
+              <span className="t-muted rounded-full bg-[var(--surface-2)] px-3 py-1 text-xs font-bold">
+                {txns.length} ledger record{txns.length === 1 ? "" : "s"}
+              </span>
+            </p>
+          )}
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-forest px-3 py-1.5 text-xs font-bold text-white dark:bg-voltaic dark:text-midnight">
           <span aria-hidden="true">{Icons.shield}</span> Administrator
@@ -225,7 +235,7 @@ export default function Admin() {
           <>
             <div className="mt-3 hidden overflow-x-auto md:block">
               <table className="w-full text-left text-sm">
-                <thead>
+                <thead className="t-surface sticky top-0">
                   <tr className="t-border border-b">
                     <th scope="col" className="t-muted py-2.5 pr-3 text-xs font-bold uppercase tracking-wide">Customer</th>
                     <th scope="col" className="t-muted py-2.5 pr-3 text-xs font-bold uppercase tracking-wide">Email / phone</th>
@@ -247,8 +257,8 @@ export default function Admin() {
                         </span>
                       </td>
                       <td className="t-muted py-3 pr-3">{identifierOf(u)}</td>
-                      <td className="t-text py-3 pr-3 font-mono text-[13px]">{u.accountNumber}</td>
-                      <td className="t-text py-3 pr-3 text-right font-bold">{formatNaira(u.balance)}</td>
+                      <td className="tnum t-text py-3 pr-3 font-mono text-[13px]">{u.accountNumber}</td>
+                      <td className="tnum t-text py-3 pr-3 text-right font-bold">{formatNaira(u.balance)}</td>
                       <td className="py-3 text-right">
                         <span className="inline-flex flex-wrap justify-end gap-1.5">
                           <button className="btn-secondary px-3 py-1.5 text-xs" disabled={busy}

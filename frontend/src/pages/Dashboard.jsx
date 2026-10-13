@@ -13,7 +13,7 @@ export function TransactionList({ txns, selfId }) {
         const sign = signedAmount(t, selfId);
         const incoming = sign >= 0;
         return (
-          <li key={t.id} className="flex items-center gap-3 py-3">
+          <li key={t.id} className="t-border -mx-2 flex items-center gap-3 rounded-xl px-2 py-3 transition-colors last:border-b-0 hover:bg-[var(--surface-2)]">
             <span aria-hidden="true" className={`disc ${incoming ? "disc-in" : "disc-out"}`}>
               {incoming ? "↓" : "↑"}
             </span>
@@ -26,7 +26,7 @@ export function TransactionList({ txns, selfId }) {
               </p>
             </div>
             <div className="shrink-0 text-right">
-              <p className={`text-sm font-bold ${incoming ? "text-[var(--ok)]" : "text-[var(--danger)]"}`}>
+              <p className={`tnum text-sm font-bold ${incoming ? "text-[var(--ok)]" : "text-[var(--danger)]"}`}>
                 {incoming ? "+" : "−"}{formatNaira(t.amount)}
               </p>
               <p className="t-muted text-[11px] font-medium">{incoming ? "Credit" : "Debit"}</p>
@@ -134,85 +134,95 @@ export default function Dashboard() {
     }
   }
 
+  const [todayLine] = useState(
+    () => new Date().toLocaleDateString("en-NG", { weekday: "long", day: "numeric", month: "long" })
+  );
+
   return (
     <div className="space-y-5">
-      <header>
-        <p className="eyebrow">Overview</p>
-        <h1 className="t-text mt-1 text-2xl font-bold tracking-tight">Welcome back, {firstName(user?.name)}</h1>
-        <p className="t-muted mt-0.5 text-sm">{userIdentifier(user)} · All funds simulated</p>
+      <header className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="eyebrow">Overview · {todayLine}</p>
+          <h1 className="t-text mt-1 text-[26px] font-extrabold leading-tight tracking-tight sm:text-3xl">
+            Welcome back, {firstName(user?.name)}
+          </h1>
+        </div>
+        <p className="t-muted text-[13px]">{userIdentifier(user)}</p>
       </header>
 
-      <section aria-label="Account overview" className="card overflow-hidden !p-0">
-        <div className="flex items-center justify-between bg-forest px-5 py-3.5 dark:bg-deepsea">
-          <span className="flex items-center gap-2 text-sm font-bold tracking-tight text-white">
-            <BrandMark size={28} /> Nairova
+      <section aria-label="Account overview" className="brand-panel overflow-hidden rounded-[20px] p-5 sm:p-7">
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-2 text-[15px] font-extrabold tracking-tight">
+            <BrandMark size={30} /> Nairova
           </span>
-          <span className="rounded-full bg-mint px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-ink dark:bg-voltaic dark:text-midnight">
+          <span className="rounded-full bg-mint px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-ink dark:bg-voltaic dark:text-midnight">
             Simulated
           </span>
         </div>
-        <div className="px-5 py-5">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="eyebrow">Available balance</p>
-              <div className="mt-1 flex items-center gap-2">
-                <p className="t-text text-[32px] font-bold leading-none tracking-tight" aria-live="polite">
-                  {loading ? "…" : showBalance ? formatNaira(balance ?? 0) : "₦••••••"}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowBalance((v) => !v)}
-                  aria-label={showBalance ? "Hide balance" : "Show balance"}
-                  aria-pressed={showBalance}
-                  title={showBalance ? "Hide balance" : "Show balance"}
-                  className="t-muted rounded-lg p-2 hover:text-[var(--text)]"
-                >
-                  <span aria-hidden="true">{showBalance ? Icons.eye : Icons.eyeOff}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="t-border mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-t pt-4">
-            <div>
-              <p className="eyebrow">Account number</p>
-              <p className="t-text mt-0.5 font-mono text-[15px] font-semibold tracking-wider">
-                {formatAccountDisplay(user?.accountNumber)}
+
+        <div className="mt-6 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/60">Available balance</p>
+            <div className="mt-1.5 flex items-center gap-2.5">
+              <p className="tnum text-[38px] font-extrabold leading-none tracking-tight text-white sm:text-[44px]" aria-live="polite">
+                {loading ? "…" : showBalance ? formatNaira(balance ?? 0) : "₦••••••"}
               </p>
+              <button
+                type="button"
+                onClick={() => setShowBalance((v) => !v)}
+                aria-label={showBalance ? "Hide balance" : "Show balance"}
+                aria-pressed={showBalance}
+                title={showBalance ? "Hide balance" : "Show balance"}
+                className="rounded-full border border-white/25 p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <span aria-hidden="true">{showBalance ? Icons.eye : Icons.eyeOff}</span>
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={handleCopyAccount}
-              aria-label="Copy account number"
-              className="btn-secondary ml-auto px-3 py-1.5 text-xs"
-            >
-              <span aria-hidden="true" className="mr-1.5">{Icons.copy}</span> Copy
-            </button>
           </div>
-          {copyMsg && <p role="status" className="mt-2 text-xs font-semibold text-[var(--ok)]">{copyMsg}</p>}
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <Link to="/transfer" className="tile tile-solid">
-              <span aria-hidden="true">{Icons.send}</span> Send money
-            </Link>
-            <Link to="/history" className="tile">
-              <span aria-hidden="true">{Icons.clock}</span> View history
-            </Link>
+          <span aria-hidden="true" className="mt-1 hidden font-extrabold leading-none text-white/10 sm:block" style={{ fontSize: "5.5rem" }}>₦</span>
+        </div>
+
+        <div className="hairline mt-6 flex flex-wrap items-center gap-x-4 gap-y-3 border-t pt-5">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/60">Account number</p>
+            <p className="tnum mt-1 font-mono text-lg font-bold tracking-[0.12em] text-white">
+              {formatAccountDisplay(user?.accountNumber)}
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={handleCopyAccount}
+            aria-label="Copy account number"
+            className="ml-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-white/10 px-4 text-[13px] font-semibold text-white transition-colors hover:bg-white/20"
+          >
+            <span aria-hidden="true">{Icons.copy}</span> {copyMsg ? "Copied" : "Copy"}
+          </button>
+        </div>
+        {copyMsg && <p role="status" className="mt-2 text-xs font-semibold text-mint dark:text-voltaic">{copyMsg}</p>}
+
+        <div className="mt-5 grid grid-cols-2 gap-2.5">
+          <Link to="/transfer" className="tile tile-mint">
+            <span aria-hidden="true">{Icons.send}</span> Send money
+          </Link>
+          <Link to="/history" className="tile tile-ghost-light">
+            <span aria-hidden="true">{Icons.clock}</span> View history
+          </Link>
         </div>
       </section>
 
       <Alert>{error}</Alert>
 
-      <div className="grid items-start gap-4 md:grid-cols-5">
-        <div className="card md:col-span-3">
+      <div className="grid items-start gap-4 lg:grid-cols-5">
+        <div className="card lg:col-span-3">
           <SectionHeading
             title="Recent activity"
             hint="Latest simulated transactions"
             action={txns.length > 0 && <Link to="/history" className="link-brand text-sm">View all →</Link>}
           />
-          <div className="mt-2">
+          <div className="mt-1">
             {loading ? (
               <div className="space-y-2 py-2" aria-label="Loading transactions">
-                <Skeleton /><Skeleton /><Skeleton />
+                <Skeleton className="h-12" /><Skeleton className="h-12" /><Skeleton className="h-12" />
               </div>
             ) : (
               <TransactionList txns={txns} selfId={user?.id} />
@@ -220,7 +230,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="card card-muted md:col-span-2">
+        <div className="card card-muted lg:col-span-2">
           <p className="eyebrow">Security</p>
           <h2 className="t-text mt-1 text-base font-bold">Transaction PIN</h2>
           <p className="t-muted mt-0.5 text-[13px]">A 4-digit PIN is required before transfers.</p>

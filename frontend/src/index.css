@@ -44,6 +44,16 @@ body {
   color: var(--text);
 }
 
+::selection { background: #b8f2d2; color: #10382f; }
+
+body {
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.006em;
+}
+
+/* Tabular numerals for every financial figure. */
+.tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
 .t-bg { background: var(--bg); }
 .t-surface { background: var(--surface); }
 .t-surface-2 { background: var(--surface-2); }
@@ -51,16 +61,19 @@ body {
 .t-muted { color: var(--muted); }
 .t-border { border-color: var(--border); }
 
+.hairline { border-color: var(--border); }
+
 .field {
-  @apply w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition-shadow;
+  @apply w-full rounded-xl border px-3.5 py-2.5 text-[15px] outline-none transition-shadow;
   background: var(--surface);
   border-color: var(--border);
   color: var(--text);
 }
-.field::placeholder { color: var(--muted); opacity: 0.7; }
+.field:hover { border-color: var(--muted); }
+.field::placeholder { color: var(--muted); opacity: 0.65; }
 .field:focus {
   border-color: var(--brand-strong);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-strong) 18%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-strong) 20%, transparent);
 }
 /* Leading-icon and trailing-toggle padding must live here (unlayered) so it
    wins over .field's own padding: Tailwind's padding utilities sit in
@@ -82,23 +95,28 @@ body {
 }
 
 .btn-primary {
-  @apply inline-flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60;
-  min-height: 44px;
+  @apply inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60;
+  min-height: 46px;
   background: var(--brand);
   color: #fff;
+  box-shadow: 0 1px 2px rgba(16, 56, 47, 0.25);
 }
+.btn-primary:not(:disabled):hover { filter: brightness(1.06); }
+.btn-primary:not(:disabled):active { transform: translateY(1px); box-shadow: none; }
 :root .btn-primary { background: #10382f; color: #fff; }
 :root .btn-primary:hover { background: #176b50; }
 .dark .btn-primary { background: #52e0c4; color: #101c35; }
 .dark .btn-primary:hover { background: #7dedd4; }
 
 .btn-secondary {
-  @apply inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex items-center justify-center rounded-xl border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  min-height: 44px;
   background: var(--surface);
   border-color: var(--border);
   color: var(--text);
 }
-.btn-secondary:hover { background: var(--surface-2); }
+.btn-secondary:not(:disabled):hover { background: var(--surface-2); }
+.btn-secondary:not(:disabled):active { transform: translateY(1px); }
 
 .btn-brand-soft {
   @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold;
@@ -107,13 +125,26 @@ body {
 }
 
 .card {
-  @apply rounded-2xl border p-5;
+  @apply rounded-[20px] border p-5 sm:p-6;
   background: var(--surface);
   border-color: var(--border);
-  box-shadow: 0 1px 2px rgba(16, 56, 47, 0.06), 0 4px 16px rgba(16, 56, 47, 0.06);
+  box-shadow: 0 1px 2px rgba(16, 56, 47, 0.05), 0 8px 24px -12px rgba(16, 56, 47, 0.18);
 }
-.dark .card { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35); }
+.dark .card { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -12px rgba(0, 0, 0, 0.6); }
 .card-muted { background: var(--surface-2); }
+
+/* Deep brand panel: forest in light, raised navy in dark. */
+.brand-panel {
+  background: linear-gradient(160deg, #16473a 0%, #10382f 55%, #0c2b24 100%);
+  color: #fff;
+}
+.dark .brand-panel {
+  background: linear-gradient(160deg, #1a2742 0%, #151f32 60%, #101c35 100%);
+  color: #f4f7fb;
+  border: 1px solid #526b8c;
+}
+.brand-panel .hairline { border-color: rgba(255, 255, 255, 0.16); }
+.dark .brand-panel .hairline { border-color: #526b8c; }
 
 .label {
   @apply mb-1 block text-xs font-semibold uppercase tracking-wide;
@@ -130,16 +161,22 @@ body {
 }
 
 .tile {
-  @apply flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors;
+  @apply flex items-center gap-3 rounded-2xl border px-4 text-sm font-semibold transition-all;
+  min-height: 56px;
   background: var(--surface);
   border-color: var(--border);
   color: var(--text);
 }
 .tile:hover { background: var(--surface-2); }
+.tile:active { transform: translateY(1px); }
 .tile-solid { background: #10382f; border-color: #10382f; color: #fff; }
 .tile-solid:hover { background: #176b50; }
 .dark .tile-solid { background: #52e0c4; border-color: #52e0c4; color: #101c35; }
 .dark .tile-solid:hover { background: #7dedd4; }
+.tile-mint { background: #b8f2d2; border-color: #b8f2d2; color: #10382f; }
+.tile-mint:hover { background: #cdf7dd; }
+.tile-ghost-light { background: transparent; border-color: rgba(255, 255, 255, 0.35); color: #fff; }
+.tile-ghost-light:hover { background: rgba(255, 255, 255, 0.1); }
 
 .disc {
   @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold;
@@ -155,6 +192,29 @@ body {
 }
 .step-num.done { background: var(--brand-strong); color: #fff; }
 .dark .step-num.done { color: #101c35; }
+
+/* Desktop sidebar links with an active indicator bar. */
+.sidelink {
+  @apply relative flex items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors;
+  min-height: 44px;
+  color: var(--muted);
+}
+.sidelink:hover { background: var(--surface-2); color: var(--text); }
+.sidelink-active { background: #10382f; color: #fff; }
+.sidelink-active:hover { background: #10382f; color: #fff; }
+.sidelink-active::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 10px;
+  bottom: 10px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: #b8f2d2;
+}
+.dark .sidelink-active { background: rgba(82, 224, 196, 0.14); color: #52e0c4; }
+.dark .sidelink-active:hover { background: rgba(82, 224, 196, 0.14); color: #52e0c4; }
+.dark .sidelink-active::before { background: #52e0c4; }
 
 :focus-visible {
   outline: 2px solid var(--brand-strong);

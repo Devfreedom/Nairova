@@ -21,7 +21,7 @@ function LedgerRow({ txn, selfId }) {
   const sign = signedAmount(txn, selfId);
   const incoming = sign >= 0;
   return (
-    <li className="flex items-center gap-3 py-3">
+    <li className="t-border -mx-2 flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-[var(--surface-2)]">
       <span aria-hidden="true" className={`disc ${incoming ? "disc-in" : "disc-out"}`}>
         {incoming ? "↓" : "↑"}
       </span>
@@ -34,7 +34,7 @@ function LedgerRow({ txn, selfId }) {
         </p>
       </div>
       <div className="shrink-0 text-right">
-        <p className={`text-[15px] font-bold ${incoming ? "text-[var(--ok)]" : "text-[var(--danger)]"}`}>
+        <p className={`tnum text-[15px] font-bold ${incoming ? "text-[var(--ok)]" : "text-[var(--danger)]"}`}>
           {incoming ? "+" : "−"}{formatNaira(txn.amount)}
         </p>
         <p className="t-muted text-[11px] font-medium">{incoming ? "Credit" : "Debit"}</p>
@@ -73,13 +73,22 @@ export default function History() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <header>
-        <p className="eyebrow">Activity</p>
-        <h1 className="t-text mt-1 text-2xl font-bold tracking-tight">Transaction history</h1>
-        <p className="t-muted mt-0.5 text-sm">
-          {loading ? "Fetching your records…" : txns.length === 0 ? "Only your own records, fetched from the API." : `${txns.length} record${txns.length === 1 ? "" : "s"} · yours only, newest first`}
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="eyebrow">Activity</p>
+          <h1 className="t-text mt-1 text-[26px] font-extrabold tracking-tight sm:text-3xl">Transaction history</h1>
+        </div>
+        {!loading && txns.length > 0 && (
+          <p className="t-muted rounded-full bg-[var(--surface-2)] px-3 py-1 text-xs font-bold">
+            {txns.length} record{txns.length === 1 ? "" : "s"}
+          </p>
+        )}
       </header>
+      {!loading && (
+        <p className="t-muted mt-1 text-[13px]">
+          {txns.length === 0 ? "Only your own records, fetched from the API." : "Yours only · newest first"}
+        </p>
+      )}
 
       <div className="mt-4"><Alert>{error}</Alert></div>
 
@@ -98,7 +107,11 @@ export default function History() {
         <div className="mt-4 space-y-4">
           {Object.entries(groups).map(([label, items]) => (
             <section key={label} aria-label={label} className="card">
-              <h2 className="eyebrow">{label}</h2>
+              <h2 className="eyebrow flex items-center gap-2">
+                {label}
+                <span aria-hidden="true" className="t-border h-px flex-1 border-t" />
+                <span className="t-muted font-semibold normal-case tracking-normal">{items.length}</span>
+              </h2>
               <ul className="t-border mt-1 divide-y">
                 {items.map((t) => (
                   <LedgerRow key={t.id} txn={t} selfId={user?.id} />
