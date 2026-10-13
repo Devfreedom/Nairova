@@ -27,6 +27,9 @@ export default function Admin() {
   const [resetError, setResetError] = useState("");
   const [resetSuccess, setResetSuccess] = useState("");
   const [resetBusy, setResetBusy] = useState(false);
+  // One idempotency key per intended credit: retries reuse it so a
+  // double-click cannot credit twice; a new credit mints a fresh key.
+  const [creditKey, setCreditKey] = useState(() => crypto.randomUUID());
 
   async function load() {
     setLoading(true);
@@ -64,7 +67,7 @@ export default function Admin() {
     try {
       // Normalized numeric amount goes to the API; the receipt below is built
       // only from the confirmed server response.
-      const res = await api.adminCredit(acct, parsed.value);
+      const res = await api.adminCredit(acct, parsed.value, { idempotencyKey: creditKey });
       const txn = res.data?.transaction;
       setReceipt({
         name: recipient?.name || txn?.receiverName || "Customer",
@@ -72,8 +75,10 @@ export default function Admin() {
         accountNumber: txn?.receiverAccountNumber || acct,
         amount: txn?.amount ?? parsed.value,
         newBalance: res.data?.newBalance,
+        reference: txn?.reference || "",
       });
       setAmount("");
+      setCreditKey(crypto.randomUUID());
       await load();
     } catch (err) {
       setError(err.message);
@@ -165,6 +170,9 @@ export default function Admin() {
               {receipt.identifier ? ` (${receipt.identifier})` : ""} · acct{" "}
               <span className="font-mono">{receipt.accountNumber}</span> · new balance{" "}
               <strong>{receipt.newBalance !== undefined ? formatNaira(receipt.newBalance) : "—"}</strong>
+              {receipt.reference ? (
+                <span className="mt-0.5 block font-mono text-xs">Ref {receipt.reference}</span>
+              ) : null}
             </p>
           </div>
         )}
