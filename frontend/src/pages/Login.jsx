@@ -36,7 +36,7 @@ export default function Login() {
       subtitle="Your money, clearly in view."
       footer={<>New to Nairova? <Link to="/register" className="link-brand">Create an account</Link></>}
     >
-      <form onSubmit={onSubmit} className="space-y-4" noValidate={false}>
+      <form onSubmit={onSubmit} className="space-y-5">
         <Alert>{error}</Alert>
         <Field
           label="Email or phone number"
