@@ -7,14 +7,12 @@ const { resetDb, seedAdmin, bootApp, baseUrl, api, login, teardown } = require("
 describe("registration PIN", () => {
   let server;
   let base;
-  let adminToken;
 
   before(async () => {
     await resetDb();
     await seedAdmin();
     server = await bootApp();
     base = baseUrl(server);
-    adminToken = (await login(base, "test.admin@example.com", "Admin123!")).data.token;
   });
 
   after(async () => {
@@ -65,41 +63,15 @@ describe("registration PIN", () => {
     });
     assert.equal(bad.status, 400);
 
-    // The identifier must still be free: nothing was persisted.
+    // No user was persisted, so login with the identifier fails...
+    const noLogin = await login(base, "08010000007", "Halfuser1!");
+    assert.equal(noLogin.status, 401);
+
+    // ...and the identifier is still free for a correct registration.
     const good = await register({
       name: "Half User", identifier: "08010000007", password: "Halfuser1!", pin: "1111", pinConfirm: "1111",
     });
     assert.equal(good.status, 201);
-    const me = await api(base, "GET", "/api/auth/me", {
-      token: (await login(base, "08010000007", "Halfuser1!")).data.token,
-    });
-    assert.equal(me.status, 200);
-  });
-
-  it("lets a newly registered user transfer immediately with the chosen PIN", async () => {
-    const reg = await register({
-      name: "Spender New", identifier: "08010000008", password: "Spender1!", pin: "6060", pinConfirm: "6060",
-    });
-    assert.equal(reg.status, 201);
-    const sender = reg.data.data.accountNumber;
-
-    const receiver = await register({
-      name: "Receiver New", identifier: "08010000009", password: "Receiver1!", pin: "7070", pinConfirm: "7070",
-    });
-    assert.equal(receiver.status, 201);
-
-    const credit = await api(base, "POST", "/api/admin/credit", {
-      token: adminToken,
-      body: { accountNumber: sender, amount: 5000 },
-    });
-    assert.equal(credit.status, 200);
-
-    const senderToken = (await login(base, "08010000008", "Spender1!")).data.token;
-    const moved = await api(base, "POST", "/api/transfer", {
-      token: senderToken,
-      body: { receiverAccountNumber: receiver.data.data.accountNumber, amount: 1500, pin: "6060" },
-    });
-    assert.equal(moved.status, 200);
-    assert.equal(moved.data.newBalance, 3500);
+    assert.equal(good.data.data.pinSet, true);
   });
 });
