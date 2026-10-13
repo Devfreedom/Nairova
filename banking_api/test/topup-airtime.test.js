@@ -199,7 +199,7 @@ describe("topup airtime purchases", () => {
     const poorToken = (await login(base, "08030200103", "Airtimepoor1!")).data.token;
 
     const counts = await rowCounts();
-    const denied = await buy({ amount: 500 }, poorToken);
+    const denied = await buy({ amount: 500, pin: "9090" }, poorToken);
     assert.equal(denied.status, 400);
     assert.ok(denied.data.message.includes("Insufficient"));
     assert.deepEqual(await rowCounts(), counts);
@@ -248,7 +248,7 @@ describe("topup airtime purchases", () => {
     assert.equal(other.status, 201);
     const otherToken = (await login(base, "08030200102", "Airtimeother1!")).data.token;
 
-    const res = await buy({ amount: 550, idempotencyKey: key }, otherToken);
+    const res = await buy({ amount: 550, pin: "7878", idempotencyKey: key }, otherToken);
     assert.equal(res.status, 409);
     assert.ok(!JSON.stringify(res.data).includes(first.data.reference));
   });
