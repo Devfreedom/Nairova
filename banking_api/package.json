@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test test/*.test.js",
+    "test": "for f in test/*.test.js; do node --test \"$f\" || exit 1; done",
     "start": "node server.js",
     "dev": "nodemon server.js",
     "db:migrate": "node src/db/migrate.js migrate",

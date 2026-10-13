@@ -165,6 +165,46 @@ describe("ledger integrity", () => {
     assert.equal(await balance(daveToken), beforeDave + 1100);
   });
 
+  it("rejects cross-user key reuse without leaking the original outcome", async () => {
+    const carolBefore = await balance(carolToken);
+    const daveBefore = await balance(daveToken);
+    const first = await transfer({
+      receiverAccountNumber: daveAccount, amount: 900, pin: "1111", idempotencyKey: "cross-user-1",
+    });
+    assert.equal(first.status, 200);
+    const originalReference = first.data.reference;
+    assert.ok(originalReference);
+
+    // Dave reuses Carol's key with an otherwise-valid request of his own.
+    const second = await transfer({
+      receiverAccountNumber: carolAccount, amount: 900, pin: "2222", idempotencyKey: "cross-user-1",
+    }, daveToken);
+    assert.equal(second.status, 409);
+    assert.equal(second.data.success, false);
+    assert.equal(
+      second.data.message,
+      "Idempotency key is already in use. Retry with a new key."
+    );
+    // No part of Carol's stored response may reach Dave.
+    assert.equal(second.data.reference, undefined);
+    assert.equal(second.data.newBalance, undefined);
+    assert.equal(second.data.data, undefined);
+    assert.ok(
+      !JSON.stringify(second.data).includes(originalReference),
+      "rejection must not leak the original reference"
+    );
+
+    // Neither balance moves; the original transaction remains intact.
+    assert.equal(await balance(carolToken), carolBefore - 900);
+    assert.equal(await balance(daveToken), daveBefore + 900);
+    const txns = await history(carolToken);
+    assert.equal(
+      txns.filter((t) => t.reference === originalReference).length,
+      1,
+      "original committed transaction must remain exactly once"
+    );
+  });
+
   it("serializes concurrent duplicates into exactly one operation", async () => {
     const before = await balance(carolToken);
     const payload = {
