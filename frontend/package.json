@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "test:parser": "node --test src/lib/amount.test.mjs",
+    "test:parser": "node --test src/lib/amount.test.mjs src/lib/transfer.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
