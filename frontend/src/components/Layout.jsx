@@ -85,7 +85,7 @@ export default function Layout({ children }) {
                 <p className="t-text truncate text-sm font-semibold">{user.name}</p>
                 <p className="t-muted truncate text-xs">{userIdentifier(user)}</p>
               </div>
-              <button onClick={handleLogout} className="t-muted rounded-lg px-2 py-1 text-xs font-semibold hover:t-text hover:underline">
+              <button onClick={handleLogout} className="t-muted rounded-lg px-2 py-1 text-xs font-semibold hover:text-[var(--text)] hover:underline">
                 Logout
               </button>
             </div>
