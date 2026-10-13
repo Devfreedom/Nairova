@@ -1,14 +1,80 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import { useAuth } from "../auth/AuthContext";
 import { parseTransferAmount } from "../lib/amount";
 import { formatNaira } from "../lib/format";
 import { Alert, Icons } from "../components/ui";
 
 const STEPS = ["Details", "Review", "Confirm"];
+const SUBMIT_TIMEOUT_MS = 30000;
+
+// Pending intents live in sessionStorage so a refresh cannot orphan an
+// uncertain transfer. The transaction PIN is never stored — only the
+// non-secret payload plus the idempotency key.
+const PENDING_KEY = "nairova.pendingTransfer";
 
 function newKey() {
   return crypto.randomUUID();
+}
+
+function loadPending() {
+  try {
+    const raw = sessionStorage.getItem(PENDING_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (
+      !p ||
+      typeof p.key !== "string" ||
+      typeof p.receiverAccountNumber !== "string" ||
+      typeof p.receiverName !== "string" ||
+      typeof p.amount !== "number" ||
+      !Number.isFinite(p.amount)
+    ) {
+      return null;
+    }
+    return {
+      key: p.key,
+      receiverAccountNumber: p.receiverAccountNumber,
+      receiverName: p.receiverName,
+      amount: p.amount,
+      amountDisplay: typeof p.amountDisplay === "string" ? p.amountDisplay : String(p.amount),
+      narration: typeof p.narration === "string" ? p.narration : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function savePending(pending) {
+  try {
+    sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
+  } catch {
+    // Storage may be unavailable; the in-memory flow still works.
+  }
+}
+
+function clearPending() {
+  try {
+    sessionStorage.removeItem(PENDING_KEY);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+// 4xx responses are definitive backend rejections: validation, auth, and rate
+// limits are all decided before the money transaction runs, so nothing was
+// executed. Network failures, timeouts, and 5xx are uncertain — the server
+// may have committed without the browser receiving the response.
+function isUncertainOutcome(err) {
+  if (err?.isNetworkError) return true;
+  const status = err?.status;
+  if (status === null || status === undefined) return true;
+  return status >= 500;
+}
+
+function isPinlessError(err) {
+  return /must create a pin/i.test(err?.message || "");
 }
 
 function lagosTime(iso) {
@@ -28,6 +94,7 @@ function lagosTime(iso) {
 
 export default function Transfer() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState("details");
   const [accountNumber, setAccountNumber] = useState("");
   const [amount, setAmount] = useState("");
@@ -36,16 +103,45 @@ export default function Transfer() {
   const [verified, setVerified] = useState(null);
   const [parsedAmount, setParsedAmount] = useState(null);
   const [idempotencyKey, setIdempotencyKey] = useState(newKey);
+  // Locked payload: while a pending intent exists, details cannot be edited
+  // under the same key (the server would 409 a changed fingerprint anyway).
+  const [locked, setLocked] = useState(false);
+  const [restoredNotice, setRestoredNotice] = useState("");
+  const [needsPinSetup, setNeedsPinSetup] = useState(false);
+  const [discardArmed, setDiscardArmed] = useState(false);
   const [result, setResult] = useState(null);
   const [resultError, setResultError] = useState("");
   const [receiptTxn, setReceiptTxn] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [copied, setCopied] = useState("");
+  const [shareNote, setShareNote] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const restoredOnce = useRef(false);
 
-  const stepIndex = step === "details" ? 0 : step === "review" || step === "pin" ? 1 : 2;
+  const stepIndex = step === "details" ? 0 : step === "review" || step === "pin" || step === "uncertain" ? 1 : 2;
+
+  // Restore a pending intent after a refresh: same key, same payload, PIN to
+  // be re-entered. Nothing is resubmitted automatically.
+  useEffect(() => {
+    async function boot() {
+      if (restoredOnce.current) return;
+      restoredOnce.current = true;
+      const pending = loadPending();
+      if (!pending) return;
+      setAccountNumber(pending.receiverAccountNumber);
+      setAmount(pending.amountDisplay);
+      setNarration(pending.narration);
+      setVerified({ name: pending.receiverName, accountNumber: pending.receiverAccountNumber });
+      setParsedAmount(pending.amount);
+      setIdempotencyKey(pending.key);
+      setLocked(true);
+      setRestoredNotice("Restored your pending transfer. Details are locked to this attempt — enter your PIN to continue, or cancel to start over.");
+      setStep("pin");
+    }
+    boot();
+  }, []);
 
   async function handleVerify() {
     setError("");
@@ -88,46 +184,39 @@ export default function Transfer() {
     setStep("review");
   }
 
-  async function handleConfirm() {
-    if (busy) return;
-    setResultError("");
-    if (!/^\d{4}$/.test(pin)) {
-      setResultError("Enter your 4-digit transaction PIN.");
-      return;
-    }
-    setBusy(true);
-    try {
-      // The only balance-changing call in this flow. Nothing moves until
-      // the server confirms; the outcome below renders the real response.
-      const res = await api.transfer({
-        receiverAccountNumber: verified.accountNumber,
-        amount: parsedAmount,
-        pin,
-        narration: narration.trim() || undefined,
-        idempotencyKey,
-      });
-      setResult(res);
-      setPin("");
-      setIdempotencyKey(newKey());
-      setStep("result");
-      // Best-effort receipt enrichment: match the ledger row for its
-      // server-recorded timestamp. Absence never blocks the result.
-      try {
-        const txns = await api.transactions();
-        setReceiptTxn((txns.data || []).find((t) => t.reference === res.reference) || null);
-      } catch {
-        setReceiptTxn(null);
-      }
-    } catch (err) {
-      // Failure keeps the same key so "Try again" is a safe retry, and the
-      // failure is shown as-is — never as a success.
-      setResultError(err.message);
-    } finally {
-      setBusy(false);
-    }
+  function pendingPayload(key) {
+    return {
+      key,
+      receiverAccountNumber: verified.accountNumber,
+      receiverName: verified.name,
+      amount: parsedAmount,
+      amountDisplay: amount,
+      narration: narration.trim(),
+    };
   }
 
-  function handleSendAnother() {
+  function handleToPin() {
+    setResultError("");
+    setNeedsPinSetup(false);
+    setDiscardArmed(false);
+    // Persist before submission so a refresh or timeout keeps this exact
+    // intent (key + payload, never the PIN) available for a safe retry.
+    savePending(pendingPayload(idempotencyKey));
+    setLocked(true);
+    setStep("pin");
+  }
+
+  // Editing details abandons the current key: a changed payload under an old
+  // key would be rejected, so a fresh key starts the new intent.
+  function handleBackToReview() {
+    setIdempotencyKey(newKey());
+    clearPending();
+    setLocked(false);
+    setResultError("");
+    setStep("review");
+  }
+
+  function resetFlow() {
     setStep("details");
     setAccountNumber("");
     setAmount("");
@@ -140,16 +229,152 @@ export default function Transfer() {
     setReceiptTxn(null);
     setShowReceipt(false);
     setError("");
+    setLocked(false);
+    setRestoredNotice("");
+    setNeedsPinSetup(false);
+    setDiscardArmed(false);
+    setShareNote("");
+    clearPending();
     setIdempotencyKey(newKey());
+  }
+
+  async function handleConfirm() {
+    if (busy) return;
+    setResultError("");
+    setNeedsPinSetup(false);
+    if (!/^\d{4}$/.test(pin)) {
+      setResultError("Enter your 4-digit transaction PIN.");
+      return;
+    }
+    setBusy(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SUBMIT_TIMEOUT_MS);
+    try {
+      // The only balance-changing call in this flow. Nothing moves until
+      // the server confirms; the outcome below renders the real response.
+      const res = await api.transfer(
+        {
+          receiverAccountNumber: verified.accountNumber,
+          amount: parsedAmount,
+          pin,
+          narration: narration.trim() || undefined,
+          idempotencyKey,
+        },
+        controller.signal
+      );
+      clearPending();
+      setResult(res);
+      setPin("");
+      setIdempotencyKey(newKey());
+      setLocked(false);
+      setStep("result");
+      // Best-effort receipt enrichment: match the ledger row for its
+      // server-recorded timestamp. Absence never blocks the result.
+      try {
+        const txns = await api.transactions();
+        setReceiptTxn((txns.data || []).find((t) => t.reference === res.reference) || null);
+      } catch {
+        setReceiptTxn(null);
+      }
+    } catch (err) {
+      if (isPinlessError(err)) {
+        // Definitive, but the key was never consumed: keep the pending
+        // intent so the user can create a PIN and return to this attempt.
+        savePending(pendingPayload(idempotencyKey));
+        setLocked(true);
+        setNeedsPinSetup(true);
+        setResultError("");
+      } else if (isUncertainOutcome(err)) {
+        // The commit may have succeeded unseen: preserve the intent and
+        // offer a same-key retry. Never show success here.
+        savePending(pendingPayload(idempotencyKey));
+        setLocked(true);
+        setDiscardArmed(false);
+        setResultError(err.message);
+        setStep("uncertain");
+      } else {
+        // Definitive rejection: nothing executed. The in-memory key is
+        // retained for an unchanged retry; editing mints a fresh one.
+        clearPending();
+        setLocked(false);
+        setResultError(err.message);
+      }
+    } finally {
+      clearTimeout(timer);
+      setBusy(false);
+    }
+  }
+
+  // Explicit, warned discard of an unresolved intent — never silent. The
+  // server may still have committed, so the user is told to check history.
+  function handleDiscard() {
+    if (!discardArmed) {
+      setDiscardArmed(true);
+      return;
+    }
+    resetFlow();
   }
 
   async function handleCopy(text, what) {
     setCopied("");
+    setShareNote("");
     try {
       await navigator.clipboard.writeText(text);
       setCopied(what);
     } catch {
       setCopied("");
+    }
+  }
+
+  function receiptText() {
+    const fromAcct = receiptTxn?.senderAccountNumber || user?.accountNumber;
+    const lines = [
+      "Nairova transfer receipt",
+      "Simulated transfer between Nairova accounts. Not a real bank.",
+      "",
+      "Status: Success",
+      `Reference: ${result.reference}`,
+      receiptTxn?.timestamp ? `Date: ${lagosTime(receiptTxn.timestamp)} (Africa/Lagos)` : null,
+      `From: ${user?.name || "Your Nairova account"}${fromAcct ? ` (${fromAcct})` : ""}`,
+      `To: ${verified.name} (${verified.accountNumber})`,
+      `Amount: ${formatNaira(parsedAmount)}`,
+      `Fee: ${formatNaira(result.fee ?? 0)}`,
+      result.narration ? `Narration: ${result.narration}` : null,
+    ];
+    return lines.filter(Boolean).join("\n");
+  }
+
+  function handleDownload() {
+    setShareNote("");
+    const blob = new Blob([receiptText()], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nairova-receipt-${result.reference}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function handleShare() {
+    setCopied("");
+    setShareNote("");
+    const text = receiptText();
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Nairova transfer receipt", text });
+        return;
+      } catch (err) {
+        if (err?.name === "AbortError") return;
+      }
+    }
+    // No native share (e.g. desktop): fall back to copying the receipt.
+    try {
+      await navigator.clipboard.writeText(text);
+      setShareNote("Sharing is not available here — the receipt was copied instead.");
+    } catch {
+      setShareNote("Sharing is not available here — use Download instead.");
     }
   }
 
@@ -284,6 +509,10 @@ export default function Transfer() {
               <dt>Fee</dt>
               <dd className="tnum t-text font-semibold">{formatNaira(0)}</dd>
             </div>
+            <div className="flex justify-between gap-3">
+              <dt>Total debit</dt>
+              <dd className="tnum t-text text-base font-extrabold">{formatNaira(parsedAmount)}</dd>
+            </div>
             {narration.trim() && (
               <div className="flex justify-between gap-3">
                 <dt>Narration</dt>
@@ -295,7 +524,7 @@ export default function Transfer() {
             <button type="button" className="btn-secondary" onClick={() => { setError(""); setStep("details"); }}>
               Cancel
             </button>
-            <button type="button" className="btn-primary" onClick={() => { setResultError(""); setStep("pin"); }}>
+            <button type="button" className="btn-primary" onClick={handleToPin}>
               Continue to PIN
             </button>
           </div>
@@ -311,34 +540,107 @@ export default function Transfer() {
             Sending <strong className="tnum t-text">{formatNaira(parsedAmount)}</strong> to{" "}
             <strong className="t-text">{verified.name}</strong>.
           </p>
+          {restoredNotice && (
+            <p role="status" className="t-border mt-3 rounded-xl border bg-[var(--surface-2)] px-3.5 py-2.5 text-[13px] font-medium">
+              {restoredNotice}
+            </p>
+          )}
+          {locked && !restoredNotice && (
+            <p className="t-muted mt-2 text-xs">Details are locked to this attempt to prevent duplicate transfers.</p>
+          )}
           <Alert>{resultError}</Alert>
+          {needsPinSetup ? (
+            <div className="t-border mt-4 rounded-xl border bg-[var(--surface-2)] px-3.5 py-3">
+              <p className="t-text text-sm font-bold">No transaction PIN yet</p>
+              <p className="t-muted mt-1 text-[13px]">
+                This account has no transaction PIN. Create one in Settings, then return here — this transfer
+                attempt is preserved and you can submit it with the same details.
+              </p>
+              <div className="mt-3 grid gap-2 min-[480px]:grid-cols-2">
+                <Link to="/settings" className="btn-secondary">Go to Settings</Link>
+                <button type="button" className="btn-primary" onClick={() => { setNeedsPinSetup(false); setResultError(""); }}>
+                  I&apos;ve set my PIN
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={(e) => { e.preventDefault(); handleConfirm(); }} className="mt-4">
+              <label className="block" htmlFor="transfer-pin">
+                <span className="label">Transaction PIN</span>
+                <input
+                  id="transfer-pin"
+                  name="transferPin"
+                  className="field"
+                  type="password"
+                  autoComplete="new-password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="Enter your 4-digit PIN"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                  required
+                />
+              </label>
+              <div className="mt-4 grid gap-2 min-[480px]:grid-cols-2">
+                <button type="button" className="btn-secondary" disabled={busy} onClick={handleBackToReview}>
+                  Back
+                </button>
+                <button type="submit" className="btn-primary" disabled={busy}>
+                  <span aria-hidden="true" className="mr-2">{Icons.send}</span>
+                  {busy ? "Sending…" : "Confirm transfer"}
+                </button>
+              </div>
+              <button type="button" className="link-brand mt-3 w-full text-center text-xs" disabled={busy} onClick={resetFlow}>
+                Cancel this transfer
+              </button>
+            </form>
+          )}
+        </section>
+      )}
+
+      {step === "uncertain" && (
+        <section aria-labelledby="step-uncertain" className="card mt-5">
+          <p className="eyebrow">Confirmation pending</p>
+          <h2 id="step-uncertain" className="t-text mt-1 text-base font-bold">We couldn&apos;t confirm this transfer</h2>
+          <Alert>{resultError || "The request did not complete normally."}</Alert>
+          <p className="t-muted mt-3 text-sm">
+            Your transfer of <strong className="tnum t-text">{formatNaira(parsedAmount)}</strong> to{" "}
+            <strong className="t-text">{verified.name}</strong> may still have completed on the server.
+            It is preserved below — retrying uses the same attempt and cannot debit you twice.
+          </p>
           <form onSubmit={(e) => { e.preventDefault(); handleConfirm(); }} className="mt-4">
-            <label className="block" htmlFor="transfer-pin">
-              <span className="label">Transaction PIN</span>
+            <label className="block" htmlFor="transfer-pin-retry">
+              <span className="label">Transaction PIN (to retry safely)</span>
               <input
-                id="transfer-pin"
-                name="transferPin"
+                id="transfer-pin-retry"
+                name="transferPinRetry"
                 className="field"
                 type="password"
                 autoComplete="new-password"
                 inputMode="numeric"
                 maxLength={4}
-                placeholder="Enter your 4-digit PIN"
+                placeholder="Re-enter your 4-digit PIN"
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                 required
               />
             </label>
-            <div className="mt-4 grid gap-2 min-[480px]:grid-cols-2">
-              <button type="button" className="btn-secondary" disabled={busy} onClick={() => { setResultError(""); setStep("review"); }}>
-                Back
-              </button>
-              <button type="submit" className="btn-primary" disabled={busy}>
-                <span aria-hidden="true" className="mr-2">{Icons.send}</span>
-                {busy ? "Sending…" : "Confirm transfer"}
-              </button>
-            </div>
+            <button type="submit" className="btn-primary mt-3" disabled={busy}>
+              <span aria-hidden="true" className="mr-2">{Icons.send}</span>
+              {busy ? "Retrying…" : "Retry with the same attempt"}
+            </button>
           </form>
+          <div className="mt-2 grid gap-2 min-[480px]:grid-cols-2">
+            <Link to="/history" className="btn-secondary">Check history</Link>
+            <button type="button" className="btn-secondary" disabled={busy} onClick={handleDiscard}>
+              {discardArmed ? "Tap again to discard" : "Discard attempt"}
+            </button>
+          </div>
+          {discardArmed && (
+            <p role="alert" className="mt-2 text-center text-xs font-semibold text-[var(--danger)]">
+              Discarding does not reverse a transfer that already completed — check history first.
+            </p>
+          )}
         </section>
       )}
 
@@ -395,7 +697,7 @@ export default function Transfer() {
               <button type="button" className="btn-secondary" onClick={() => navigate("/")}>
                 Done
               </button>
-              <button type="button" className="btn-secondary" onClick={handleSendAnother}>
+              <button type="button" className="btn-secondary" onClick={resetFlow}>
                 Send another
               </button>
               <button type="button" className="btn-primary" onClick={() => setShowReceipt((v) => !v)} aria-expanded={showReceipt}>
@@ -430,7 +732,12 @@ export default function Transfer() {
                 )}
                 <div className="flex justify-between gap-3">
                   <dt>From</dt>
-                  <dd className="t-text text-right font-semibold">Your Nairova account</dd>
+                  <dd className="t-text text-right font-semibold">
+                    {user?.name || "Your Nairova account"}
+                    {(receiptTxn?.senderAccountNumber || user?.accountNumber) && (
+                      <> · <span className="font-mono">{receiptTxn?.senderAccountNumber || user.accountNumber}</span></>
+                    )}
+                  </dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt>To</dt>
@@ -452,11 +759,19 @@ export default function Transfer() {
                 </div>
               </dl>
               <p className="t-muted mt-3 text-xs">Simulated transfer between Nairova accounts. Details above match the recorded transaction.</p>
+              <div className="mt-3 grid gap-2 min-[480px]:grid-cols-2">
+                <button type="button" className="btn-secondary" onClick={handleDownload}>
+                  Download receipt
+                </button>
+                <button type="button" className="btn-secondary" onClick={handleShare}>
+                  Share receipt
+                </button>
+              </div>
+              {shareNote && <p role="status" className="t-muted mt-2 text-center text-xs">{shareNote}</p>}
             </section>
           )}
         </div>
       )}
-
-</div>
+    </div>
   );
 }
