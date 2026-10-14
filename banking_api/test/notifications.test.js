@@ -242,23 +242,25 @@ describe("notification centre", () => {
     assert.equal((await list(senderToken)).data.data.length, itemsAfterReplay.length);
     assert.equal((await unread(senderToken)).data.data.unreadCount, unreadAfterBuy);
   });
-
-  it("transitions read state and marks all as read", async () => {    const items = (await list(senderToken)).data.data;
+  it("transitions read state and marks all as read", async () => {
+    const items = (await list(senderToken)).data.data;
     const target = items[0].id;
+    assert.equal(items[0].read, false);
+    const unreadBefore = (await unread(senderToken)).data.data.unreadCount;
 
     const marked = await api(base, "PATCH", `/api/notifications/${target}/read`, { token: senderToken });
     assert.equal(marked.status, 200);
     assert.equal(marked.data.data.read, true);
-    assert.equal((await unread(senderToken)).data.data.unreadCount, 2);
+    assert.equal((await unread(senderToken)).data.data.unreadCount, unreadBefore - 1);
 
     // Re-marking is idempotent, still 200.
     const again = await api(base, "PATCH", `/api/notifications/${target}/read`, { token: senderToken });
     assert.equal(again.status, 200);
-    assert.equal((await unread(senderToken)).data.data.unreadCount, 2);
+    assert.equal((await unread(senderToken)).data.data.unreadCount, unreadBefore - 1);
 
     const all = await api(base, "PATCH", "/api/notifications/read-all", { token: senderToken });
     assert.equal(all.status, 200);
-    assert.equal(all.data.data.updated, 2);
+    assert.equal(all.data.data.updated, unreadBefore - 1);
     assert.equal((await unread(senderToken)).data.data.unreadCount, 0);
 
     const listed = (await list(senderToken)).data.data;
