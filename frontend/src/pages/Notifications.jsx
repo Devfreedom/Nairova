@@ -12,6 +12,8 @@ import {
 import { useUnread } from "../notifications/UnreadContext";
 import { Alert, Empty, Skeleton } from "../components/ui";
 
+const PAGE_SIZE = 20;
+
 function NotificationRow({ item, onMarkRead, marking }) {
   const dest = resolveNotificationDestination(item.destination);
   return (
@@ -75,7 +77,7 @@ export default function Notifications() {
         api.notifications({ cursor, limit: PAGE_SIZE }),
         api.unreadCount(),
       ]);
-      setItems((prev) => (append ? [...prev, ...(list.data || [])] : list.data || []));
+      setItems((prev) => (append ? mergeNotificationPages(prev, list.data || []) : list.data || []));
       setNextCursor(list.page?.nextCursor ?? null);
       setUnread(count.data?.unreadCount ?? 0);
       await refresh();
@@ -97,10 +99,11 @@ export default function Notifications() {
   async function handleMarkRead(id) {
     if (marking) return;
     setMarking(true);
+    setError("");
     try {
       await api.markNotificationRead(id);
-      setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-      setUnread((u) => Math.max(0, u - 1));
+      setItems((prev) => applyMarkRead(prev, id));
+      setUnread((u) => decrementUnread(u));
       await refresh();
     } catch (err) {
       setError(err.message);
@@ -115,7 +118,7 @@ export default function Notifications() {
     setError("");
     try {
       await api.markAllNotificationsRead();
-      setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+      setItems((prev) => applyMarkAllRead(prev));
       setUnread(0);
       await refresh();
     } catch (err) {
@@ -175,7 +178,7 @@ export default function Notifications() {
         </div>
       ) : items.length === 0 ? (
         <div className="card mt-4">
-          <Empty title="No notifications yet" hint="Completed transfers, deposits and simulated credits will appear here." />
+          <Empty title="No notifications yet" hint="Completed transfers, deposits, simulated credits, airtime and data purchases will appear here." />
           <Link to="/" className="btn-secondary mt-4 w-full">Back to dashboard</Link>
         </div>
       ) : (

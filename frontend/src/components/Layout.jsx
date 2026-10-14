@@ -63,8 +63,9 @@ export default function Layout({ children }) {
   }
 
   const badge = unread > 0 ? (
-    <span aria-hidden="true" className="ml-auto shrink-0 rounded-full bg-[var(--brand-strong)] px-2 py-0.5 text-[11px] font-extrabold text-white dark:text-[#101C35]">
-      {unread > 99 ? "99+" : unread}
+    <span aria-live="polite" className="ml-auto shrink-0 rounded-full bg-[var(--brand-strong)] px-2 py-0.5 text-[11px] font-extrabold text-white dark:text-[#101C35]">
+      <span aria-hidden="true">{unread > 99 ? "99+" : unread}</span>
+      <span className="sr-only">, {unread} unread notifications</span>
     </span>
   ) : null;
 
