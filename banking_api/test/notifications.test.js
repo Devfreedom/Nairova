@@ -196,8 +196,54 @@ describe("notification centre", () => {
     assert.equal(markAll.data.data.updated, 0);
   });
 
-  it("transitions read state and marks all as read", async () => {
+  it("creates purchase notifications linking to history, without duplicates or failure rows", async () => {
+    const unreadBefore = (await unread(senderToken)).data.data.unreadCount;
+    const listBefore = (await list(senderToken)).data.data.length;
+
+    const key = randomUUID();
+    const payload = {
+      recipientMsisdn: "08012345678",
+      network: "MTN",
+      amount: 500,
+      pin: "1111",
+      idempotencyKey: key,
+    };
+    const bought = await api(base, "POST", "/api/topup/airtime", { token: senderToken, body: payload });
+    assert.equal(bought.status, 200);
+    const reference = bought.data.reference;
+    assert.ok(reference);
+
     const items = (await list(senderToken)).data.data;
+    assert.equal(items.length, listBefore + 1);
+    const note = items.find((n) => n.reference === reference);
+    assert.ok(note, "purchase notification carries the ledger reference");
+    assert.equal(note.eventType, "airtime_purchased");
+    assert.equal(note.destination, "/history");
+    assert.equal(note.read, false);
+    assert.ok(!note.message.includes("08012345678"), "full recipient number is masked");
+
+    const unreadAfterBuy = (await unread(senderToken)).data.data.unreadCount;
+    assert.equal(unreadAfterBuy, unreadBefore + 1);
+
+    // Idempotent retry: same key + same payload replays without a second row.
+    const replay = await api(base, "POST", "/api/topup/airtime", { token: senderToken, body: payload });
+    assert.equal(replay.status, 200);
+    assert.equal(replay.data.reference, reference);
+    const itemsAfterReplay = (await list(senderToken)).data.data;
+    assert.equal(itemsAfterReplay.filter((n) => n.reference === reference).length, 1);
+    assert.equal((await unread(senderToken)).data.data.unreadCount, unreadAfterBuy);
+
+    // Rejected purchase (wrong PIN): nothing executes, no success row.
+    const denied = await api(base, "POST", "/api/topup/airtime", {
+      token: senderToken,
+      body: { ...payload, pin: "9999", idempotencyKey: randomUUID() },
+    });
+    assert.equal(denied.status, 403);
+    assert.equal((await list(senderToken)).data.data.length, itemsAfterReplay.length);
+    assert.equal((await unread(senderToken)).data.data.unreadCount, unreadAfterBuy);
+  });
+
+  it("transitions read state and marks all as read", async () => {    const items = (await list(senderToken)).data.data;
     const target = items[0].id;
 
     const marked = await api(base, "PATCH", `/api/notifications/${target}/read`, { token: senderToken });

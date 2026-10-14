@@ -2,21 +2,18 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { formatDate } from "../lib/format";
+import {
+  applyMarkAllRead,
+  applyMarkRead,
+  decrementUnread,
+  mergeNotificationPages,
+  resolveNotificationDestination,
+} from "../lib/notifications";
 import { useUnread } from "../notifications/UnreadContext";
 import { Alert, Empty, Skeleton } from "../components/ui";
 
-// Only these internal destinations may be linked from a notification.
-// Anything else renders as plain text, never as a link.
-const DESTINATIONS = {
-  "/": { to: "/", label: "View dashboard" },
-  "/transfer": { to: "/transfer", label: "Go to transfer" },
-  "/history": { to: "/history", label: "View in history" },
-};
-
-const PAGE_SIZE = 20;
-
 function NotificationRow({ item, onMarkRead, marking }) {
-  const dest = item.destination ? DESTINATIONS[item.destination] : null;
+  const dest = resolveNotificationDestination(item.destination);
   return (
     <li
       className={`t-border -mx-2 flex items-start gap-3 rounded-xl px-2 py-3 ${
